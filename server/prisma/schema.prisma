@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id             String           @id @default(uuid())
+  email          String           @unique
+  username       String?          @unique
+  passwordHash   String
+  displayName    String
+  about          String           @default("Available")
+  avatarUrl      String?
+  privacySettings String?         // JSON string
+  twoFactorEnabled Boolean        @default(false)
+  currentOtp       String?
+  otpExpiresAt     DateTime?
+  resetToken       String?
+  resetTokenExpiresAt DateTime?
+  createdAt      DateTime         @default(now())
+  roomsCreated   Room[]           @relation("RoomCreator")
+  roomMembers    RoomMember[]
+  devices        DeviceSession[]
+  securityEvents SecurityEvent[]
+  sentRequests   ContactRequest[] @relation("Requester")
+  receivedRequests ContactRequest[] @relation("Requested")
+  contactsAdded  Contact[]        @relation("ContactOwner")
+  addedAsContact Contact[]        @relation("ContactTarget")
+  tasks          Task[]
+  loginHistory   LoginHistory[]
+  feedbacks      Feedback[]
+}
+
+model Room {
+  id               String       @id @default(uuid())
+  secureInviteCode String       @unique
+  createdById      String
+  createdBy        User         @relation("RoomCreator", fields: [createdById], references: [id])
+  passwordHash     String?
+  scheduledFor     DateTime?
+  type             String       @default("group")
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  lastActivityAt   DateTime     @default(now())
+  members          RoomMember[]
+}
+
+model RoomMember {
+  roomId   String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([roomId, userId])
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  ownerId   String
+  targetId  String
+  createdAt DateTime @default(now())
+
+  owner  User @relation("ContactOwner", fields: [ownerId], references: [id])
+  target User @relation("ContactTarget", fields: [targetId], references: [id])
+
+  @@unique([ownerId, targetId])
+}
+
+model ContactRequest {
+  id          String   @id @default(uuid())
+  requesterId String
+  requestedId String
+  status      String   @default("pending") // pending, accepted, declined
+  createdAt   DateTime @default(now())
+
+  requester User @relation("Requester", fields: [requesterId], references: [id])
+  requested User @relation("Requested", fields: [requestedId], references: [id])
+
+  @@unique([requesterId, requestedId])
+}
+
+model DeviceSession {
+  id         String   @id @default(uuid())
+  userId     String
+  deviceInfo String
+  isActive   Boolean  @default(true)
+  lastSeen   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model SecurityPolicy {
+  id                  String @id @default(uuid())
+  name                String
+  classificationLevel String
+  rules               String
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  eventType String
+  details   String
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  userId      String
+  heading     String
+  note        String?
+  targetDate  DateTime
+  isCompleted Boolean  @default(false)
+  emailSent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  device    String
+  ipAddress String
+  status    String   // 'SUCCESS' | 'FAILED'
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  category  String
+  message   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
