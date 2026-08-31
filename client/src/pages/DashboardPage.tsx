@@ -316,6 +316,7 @@ export default function DashboardPage() {
                 placeholder="Custom Room Code (Optional)"
                 value={customRoomId}
                 onChange={e => setCustomRoomId(e.target.value)}
+                autoComplete="off"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
               <input
@@ -323,6 +324,7 @@ export default function DashboardPage() {
                 placeholder="Room Password (Optional)"
                 value={roomPassword}
                 onChange={e => setRoomPassword(e.target.value)}
+                autoComplete="new-password"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
               <div className="w-full mb-4 text-left">
@@ -365,6 +367,7 @@ export default function DashboardPage() {
                      setRequiresPassword(false);
                      setJoinError('');
                   }}
+                  autoComplete="off"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
                 />
 
@@ -375,6 +378,7 @@ export default function DashboardPage() {
                     value={joinPassword}
                     onChange={e => setJoinPassword(e.target.value)}
                     required
+                    autoComplete="new-password"
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
                   />
                 )}
