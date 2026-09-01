@@ -24,6 +24,7 @@ const io = new Server(httpServer, {
 });
 const prisma = new PrismaClient();
 
+app.set('io', io);
 app.use(cors());
 app.use(express.json());
 
@@ -65,6 +66,13 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     socket.to(roomId).emit('user-connected', socket.id);
     console.log(`User ${socket.id} joined room ${roomId}`);
+  });
+
+  socket.on('close-room', (roomId: string) => {
+    // Notify everyone to leave
+    io.in(roomId).emit('room-closed');
+    // Disconnect all sockets in that room
+    io.in(roomId).disconnectSockets(true);
   });
 
   socket.on('offer', (data: { offer: any, to: string }) => {

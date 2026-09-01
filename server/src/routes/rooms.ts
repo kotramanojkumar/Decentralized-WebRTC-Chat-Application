@@ -107,6 +107,23 @@ router.post('/verify', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/my-rooms/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const rooms = await prisma.room.findMany({
+      where: { 
+        createdById: userId,
+        isActive: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ rooms });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/:inviteCode', async (req: Request, res: Response) => {
   try {
     const { inviteCode } = req.params;
@@ -151,6 +168,12 @@ router.post('/close', async (req: Request, res: Response) => {
       where: { id: room.id },
       data: { isActive: false }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.in(room.secureInviteCode).emit('room-closed');
+      io.in(room.secureInviteCode).disconnectSockets(true);
+    }
 
     res.json({ success: true, message: 'Room has been closed.' });
   } catch (error) {

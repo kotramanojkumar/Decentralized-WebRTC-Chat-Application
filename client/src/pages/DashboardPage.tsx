@@ -53,6 +53,25 @@ export default function DashboardPage() {
     localStorage.setItem('dashboardTasks', JSON.stringify(tasks));
   }, [tasks]);
 
+  const [myRooms, setMyRooms] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const fetchMyRooms = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+      try {
+        const res = await fetch(`${API_URL}/rooms/my-rooms/${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMyRooms(data.rooms);
+        }
+      } catch (e) {}
+    };
+    fetchMyRooms();
+    const interval = setInterval(fetchMyRooms, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCreateRoom = async () => {
     setIsCreating(true);
     try {
@@ -81,6 +100,23 @@ export default function DashboardPage() {
       alert('Failed to create room');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const closeRoomFromDashboard = async (inviteCode: string) => {
+    if (!confirm('Are you sure you want to close this room? It will immediately disconnect anyone inside.')) return;
+    try {
+      const res = await fetch(`${API_URL}/rooms/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode, userId: localStorage.getItem('userId') })
+      });
+      if (res.ok) {
+        setMyRooms(prev => prev.filter(r => r.secureInviteCode !== inviteCode));
+        alert('Room closed successfully.');
+      }
+    } catch (e) {
+      alert('Failed to close room');
     }
   };
 
@@ -418,7 +454,7 @@ export default function DashboardPage() {
                   disabled={!joinRoomId.trim()}
                   className="w-full bg-emerald-600 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 transition disabled:opacity-50"
                 >
-                  {requiresPassword ? 'Unlock & Join' : 'Join Room'}
+                  {requiresPassword ? 'Join with Password' : 'Join Room'}
                 </button>
               </form>
             </div>
@@ -438,6 +474,45 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+
+        {/* Active Sessions UI */}
+        {myRooms.length > 0 && (
+          <div className="mb-8 bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg border border-white/50 dark:border-white/10 w-full transition-all">
+            <h2 className="text-xl font-semibold mb-4 dark:text-white flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              My Active Sessions
+            </h2>
+            <div className="space-y-3">
+              {myRooms.map(room => (
+                <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+                  <div className="mb-3 sm:mb-0">
+                    <div className="font-mono font-medium text-gray-800 dark:text-gray-200">
+                      Code: {room.secureInviteCode}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      Type: {room.type === 'p2p' ? 'Direct Message' : 'Group Chat'} 
+                      {room.hasPassword && ' 🔒'}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => navigate(`/room/${room.secureInviteCode}?type=${room.type}`)}
+                      className="px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition text-sm"
+                    >
+                      Re-join
+                    </button>
+                    <button 
+                      onClick={() => closeRoomFromDashboard(room.secureInviteCode)}
+                      className="px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition text-sm"
+                    >
+                      Close Room
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6">
           {/* Tasks List */}
