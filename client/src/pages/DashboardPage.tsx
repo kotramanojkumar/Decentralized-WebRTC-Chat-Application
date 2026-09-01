@@ -72,7 +72,8 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsCreating(true);
     try {
       const token = localStorage.getItem('token');
@@ -377,38 +378,40 @@ export default function DashboardPage() {
                   Group Room
                 </button>
               </div>
-              <input
-                type="text"
-                placeholder="Custom Room Code (Optional)"
-                value={customRoomId}
-                onChange={e => setCustomRoomId(e.target.value)}
-                autoComplete="off"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              />
-              <input
-                type="password"
-                placeholder="Room Password (Optional)"
-                value={roomPassword}
-                onChange={e => setRoomPassword(e.target.value)}
-                autoComplete="new-password"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              />
-              <div className="w-full mb-4 text-left">
-                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Schedule For (Optional)</label>
-                 <input
-                   type="datetime-local"
-                   value={scheduledFor}
-                   onChange={e => setScheduledFor(e.target.value)}
-                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                 />
-              </div>
-              <button
-                onClick={handleCreateRoom}
-                disabled={isCreating}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
-              >
-                {isCreating ? 'Creating...' : 'Create Room'}
-              </button>
+              <form onSubmit={handleCreateRoom} className="w-full flex flex-col">
+                <input
+                  type="text"
+                  placeholder="Custom Room Code (Optional)"
+                  value={customRoomId}
+                  onChange={e => setCustomRoomId(e.target.value)}
+                  autoComplete="off"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                <input
+                  type="password"
+                  placeholder="Room Password (Optional)"
+                  value={roomPassword}
+                  onChange={e => setRoomPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                <div className="w-full mb-4 text-left">
+                   <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Schedule For (Optional)</label>
+                   <input
+                     type="datetime-local"
+                     value={scheduledFor}
+                     onChange={e => setScheduledFor(e.target.value)}
+                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                   />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
+                >
+                  {isCreating ? 'Creating...' : 'Create Room'}
+                </button>
+              </form>
             </div>
 
             <div className="bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/50 dark:border-white/10 flex flex-col items-center text-center transition-all hover:shadow-xl hover:scale-[1.01]">
