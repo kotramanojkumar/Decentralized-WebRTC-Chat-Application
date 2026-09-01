@@ -90,9 +90,16 @@ export class WebRTCManager {
     };
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        this.onTrackReceived(peerId, event.streams[0]);
-      }
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      
+      const notifyReact = () => {
+        this.onTrackReceived(peerId, new MediaStream(stream.getTracks()));
+      };
+
+      stream.onaddtrack = notifyReact;
+      stream.onremovetrack = notifyReact;
+      
+      notifyReact();
     };
 
     if (this.localStream) {
