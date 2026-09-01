@@ -96,7 +96,7 @@ export default function ProfileSetupPage() {
           <div>
             <button
               type="submit"
-              disabled={isLoading || !formData.displayName}
+              disabled={isLoading || !formData.username}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-50"
             >
               {isLoading ? 'Saving Profile...' : 'Continue'}
