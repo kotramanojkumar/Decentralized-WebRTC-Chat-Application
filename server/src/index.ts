@@ -59,25 +59,8 @@ io.on('connection', (socket) => {
     // Check if data is object or string to support both formats
     const roomId = typeof data === 'string' ? data : data.roomId;
     
-    // Check room type and enforce limits for P2P
-    try {
-      const room = await prisma.room.findUnique({ where: { secureInviteCode: roomId } });
-      if (room && room.type === 'p2p') {
-        const socketsInRoom = await io.in(roomId).fetchSockets();
-        if (socketsInRoom.length >= 2) {
-          socket.emit('room-full', {
-            message: '🔒 Access Denied — Direct Chat is Private',
-            detail: 'This is a Direct (P2P) session between two people. A connection already exists. You are not authorized to join this conversation.',
-            type: 'p2p_full'
-          });
-          // Force disconnect after warning
-          setTimeout(() => socket.disconnect(true), 1000);
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('Error checking room limit', e);
-    }
+    // We previously had a hard 2-user limit for P2P rooms here, but the user requested it to be removed.
+    // So all rooms can now hold multiple users regardless of type.
 
     socket.join(roomId);
     socket.to(roomId).emit('user-connected', socket.id);
