@@ -145,19 +145,13 @@ export default function RoomPage() {
     };
 
     manager.onTrackReceived = (peerId, stream) => {
-      // Remote streams might send multiple tracks over time.
       setRemoteStreams(prev => {
-         const existing = prev[peerId];
-         if (existing) {
-             const newStream = new MediaStream(existing.getTracks());
-             stream.getTracks().forEach(t => {
-                 if (!newStream.getTracks().find(et => et.id === t.id)) {
-                     newStream.addTrack(t);
-                 }
-             });
-             return { ...prev, [peerId]: newStream };
-         }
-         return { ...prev, [peerId]: stream };
+        if (stream.getTracks().length === 0) {
+          const next = { ...prev };
+          delete next[peerId];
+          return next;
+        }
+        return { ...prev, [peerId]: stream };
       });
     };
 
@@ -470,7 +464,7 @@ export default function RoomPage() {
         setPeers(prev => ({ ...prev, [peerId]: 'connecting' }));
       });
 
-      socketIo.on('peer-left', ({ peerId }: { peerId: string }) => {
+      socketIo.on('user-disconnected', (peerId: string) => {
         setPeers(prev => {
           const next = { ...prev };
           delete next[peerId];
