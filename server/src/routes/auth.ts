@@ -232,7 +232,9 @@ router.post('/delete-account', async (req: Request, res: Response) => {
 router.post('/forgot-password', async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    
     if (!user) {
       // Don't leak user existence
       return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
@@ -246,7 +248,10 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       data: { resetToken, resetTokenExpiresAt }
     });
 
-    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const clientUrl = process.env.CLIENT_URL || 'https://decentralized-web-rtc-chat-applicat.vercel.app';
+    const resetLink = `${clientUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(cleanEmail)}`;
+    
+    const { sendPasswordResetEmail } = require('../utils/mailer');
     await sendPasswordResetEmail(user.email, resetLink);
 
     res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
