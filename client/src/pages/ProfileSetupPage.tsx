@@ -20,7 +20,7 @@ export default function ProfileSetupPage() {
         const res = await fetch(`${API_URL}/user/update-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, username: formData.username, displayName: formData.displayName })
+          body: JSON.stringify({ userId, username: formData.username })
         });
         const data = await res.json();
         if (!res.ok) {
@@ -33,7 +33,6 @@ export default function ProfileSetupPage() {
         }
       }
       
-      localStorage.setItem('displayName', formData.displayName);
       localStorage.setItem('about', formData.about);
       navigate('/dashboard');
     } catch (e) {
@@ -69,18 +68,7 @@ export default function ProfileSetupPage() {
 
 
           <div className="rounded-md space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</label>
-              <input
-                type="text"
-                required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 transition"
-                placeholder="Enter your name"
-                value={formData.displayName}
-                onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-              />
-            </div>
-            
+
             <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unique Username</label>
               <input
