@@ -90,7 +90,7 @@ export default function DashboardPage() {
     if (!joinRoomId.trim()) return;
 
     try {
-      const res = await fetch(`${API_URL}/rooms/${joinRoomId.trim()}`);
+      const res = await fetch(`${API_URL}/rooms/${encodeURIComponent(joinRoomId.trim())}`);
       const data = await res.json();
       
       if (!res.ok) {
