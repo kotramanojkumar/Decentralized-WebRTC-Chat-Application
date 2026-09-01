@@ -110,6 +110,15 @@ export default function AdminDashboardPage() {
             Send Global Email Announcement
           </h2>
           <div className="space-y-4">
+            <select
+              id="broadcastTarget"
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Users (Global Broadcast)</option>
+              {users.map(u => (
+                <option key={u.id} value={u.email}>{u.displayName} ({u.email})</option>
+              ))}
+            </select>
             <input 
               id="broadcastSubject"
               type="text" 
@@ -118,38 +127,39 @@ export default function AdminDashboardPage() {
             />
             <textarea 
               id="broadcastMessage"
-              placeholder="Type your message to all users here..."
+              placeholder="Type your message here..."
               rows={4}
               className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
             <button 
               onClick={async () => {
+                const targetEmail = (document.getElementById('broadcastTarget') as HTMLSelectElement).value;
                 const subject = (document.getElementById('broadcastSubject') as HTMLInputElement).value;
                 const message = (document.getElementById('broadcastMessage') as HTMLTextAreaElement).value;
                 if (!subject || !message) return alert('Subject and message required');
-                if (!confirm('Are you sure you want to email EVERY user?')) return;
+                if (targetEmail === 'ALL' && !confirm('Are you sure you want to email EVERY user?')) return;
                 
                 try {
                   const token = localStorage.getItem('token');
                   const res = await fetch(`${API_URL}/admin/broadcast`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subject, message })
+                    body: JSON.stringify({ subject, message, targetEmail })
                   });
                   if (res.ok) {
-                    alert('Broadcast sent to all users!');
+                    alert(targetEmail === 'ALL' ? 'Broadcast sent to all users!' : `Email sent to ${targetEmail}!`);
                     (document.getElementById('broadcastSubject') as HTMLInputElement).value = '';
                     (document.getElementById('broadcastMessage') as HTMLTextAreaElement).value = '';
                   } else {
-                    alert('Failed to send broadcast');
+                    alert('Failed to send email');
                   }
                 } catch (e) {
-                  alert('Error sending broadcast');
+                  alert('Error sending email');
                 }
               }}
               className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-lg hover:bg-indigo-700 transition"
             >
-              Send to All Users
+              Send Email
             </button>
           </div>
         </div>

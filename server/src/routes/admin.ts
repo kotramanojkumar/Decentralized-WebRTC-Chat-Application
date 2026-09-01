@@ -97,10 +97,16 @@ router.get('/check', verifyAdmin, (req, res) => {
 // Broadcast Global Email
 router.post('/broadcast', verifyAdmin, async (req: Request, res: Response) => {
   try {
-    const { subject, message } = req.body;
+    const { subject, message, targetEmail } = req.body;
     if (!subject || !message) return res.status(400).json({ error: 'Subject and message are required' });
 
-    const users = await prisma.user.findMany({ select: { email: true } });
+    let users;
+    if (targetEmail && targetEmail !== 'ALL') {
+      users = await prisma.user.findMany({ where: { email: targetEmail }, select: { email: true } });
+    } else {
+      users = await prisma.user.findMany({ select: { email: true } });
+    }
+    
     const { sendEmail } = require('../utils/mailer');
     
     // Send in background to not block response
@@ -109,7 +115,7 @@ router.post('/broadcast', verifyAdmin, async (req: Request, res: Response) => {
         try {
           await sendEmail(user.email, subject, message);
         } catch (e) {
-          console.error(`Failed to send broadcast to ${user.email}`);
+          console.error(`Failed to send email to ${user.email}`);
         }
       }
     }, 100);
