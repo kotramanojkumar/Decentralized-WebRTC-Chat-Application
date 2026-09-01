@@ -114,7 +114,7 @@ export default function DashboardPage() {
     
     if (joinRoomId.trim()) {
       try {
-        const res = await fetch(`http://localhost:5000/api/rooms/verify`, {
+        const res = await fetch(`${API_URL}/rooms/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ inviteCode: joinRoomId.trim(), password: joinPassword })
