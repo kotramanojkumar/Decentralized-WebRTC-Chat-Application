@@ -67,7 +67,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleUpdateRole = async (id: string, newRole: string) => {
+  const handleUpdateUser = async (id: string, updates: any) => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/admin/users/${id}`, {
@@ -76,15 +76,16 @@ export default function AdminDashboardPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify(updates)
       });
       if (res.ok) {
-        setUsers(users.map(u => u.id === id ? { ...u, role: newRole } : u));
+        const data = await res.json();
+        setUsers(users.map(u => u.id === id ? { ...u, ...data.user } : u));
       } else {
-        alert('Failed to update user role');
+        alert('Failed to update user');
       }
     } catch (e) {
-      alert('Error updating user role');
+      alert('Error updating user');
     }
   };
 
@@ -169,13 +170,28 @@ export default function AdminDashboardPage() {
               <tbody>
                 {users.map(user => (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <td className="p-4 font-medium">{user.displayName}</td>
-                    <td className="p-4 text-gray-500 dark:text-gray-400">@{user.username || 'none'}</td>
+                    <td className="p-4 font-medium">
+                      <input 
+                        type="text" 
+                        defaultValue={user.displayName}
+                        onBlur={(e) => { if (e.target.value !== user.displayName) handleUpdateUser(user.id, { displayName: e.target.value }); }}
+                        className="bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none w-full"
+                      />
+                    </td>
+                    <td className="p-4 text-gray-500 dark:text-gray-400">
+                      <input 
+                        type="text" 
+                        defaultValue={user.username || ''}
+                        placeholder="none"
+                        onBlur={(e) => { if (e.target.value !== user.username) handleUpdateUser(user.id, { username: e.target.value }); }}
+                        className="bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none w-full"
+                      />
+                    </td>
                     <td className="p-4 text-gray-500 dark:text-gray-400">{user.email}</td>
                     <td className="p-4">
                       <select 
                         value={user.role} 
-                        onChange={(e) => handleUpdateRole(user.id, e.target.value)}
+                        onChange={(e) => handleUpdateUser(user.id, { role: e.target.value })}
                         className="bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded p-1 text-sm focus:outline-none"
                       >
                         <option value="USER">USER</option>
