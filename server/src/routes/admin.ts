@@ -14,7 +14,10 @@ const verifyAdmin = async (req: Request, res: Response, next: Function) => {
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-    if (!user || user.role !== 'ADMIN') {
+    if (!user) return res.status(403).json({ error: 'User not found' });
+    
+    // Explicitly allow this specific email or anyone with the ADMIN role
+    if (user.email !== 'kmk.kmk0789@gmail.com' && user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Forbidden: Admins only' });
     }
     next();

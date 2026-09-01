@@ -53,6 +53,7 @@ export default function LoginPage() {
 
         localStorage.setItem('token', data.token);
         localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('email', data.user.email);
         if (data.user.displayName) localStorage.setItem('displayName', data.user.displayName);
         if (data.user.username) localStorage.setItem('username', data.user.username);
         localStorage.setItem('justLoggedIn', 'true');

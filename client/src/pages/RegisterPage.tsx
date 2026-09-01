@@ -28,6 +28,7 @@ export default function RegisterPage() {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('email', formData.email);
       localStorage.setItem('displayName', formData.displayName);
       localStorage.setItem('justLoggedIn', 'true');
       navigate('/profile-setup');
