@@ -272,12 +272,11 @@ export default function RoomPage() {
   const endCall = () => {
     if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
     if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-    setCameraStream(null);
-    setScreenStream(null);
-    setIsVideoActive(false);
-    setIsVoiceActive(false);
-    setIsScreenSharing(false);
-    setIsMuted(false);
+    
+    if (socket) {
+      socket.emit('close-room', roomId);
+    }
+    navigate('/dashboard');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -451,6 +450,16 @@ export default function RoomPage() {
           delete next[peerId];
           return next;
         });
+        setRemoteStreams(prev => {
+          const next = { ...prev };
+          delete next[peerId];
+          return next;
+        });
+      });
+
+      socketIo.on('room-closed', () => {
+        alert('The call has been ended by another participant.');
+        navigate('/dashboard');
       });
 
       socketIo.on('receive-message', (data: any) => {
@@ -607,20 +616,34 @@ export default function RoomPage() {
             
             <div className="flex flex-wrap justify-center gap-6 w-full h-full max-w-7xl items-center">
               
-              {/* Camera Stream */}
-              {(isVideoActive || (isVoiceActive && !isScreenSharing)) && (
+              {/* Local Stream */}
+              {(isVideoActive || isVoiceActive) && (
                 <div className="relative flex-1 min-w-[350px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
-                  {!isVideoActive && isVoiceActive ? (
+                  {!cameraStream ? (
                     <div className="flex flex-col items-center animate-pulse">
-                      <div className="w-24 h-24 bg-[#00a884] rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(0,168,132,0.6)]">
-                        <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                      <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(37,99,235,0.6)]">
+                         <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                       </div>
-                      <span className="text-white mt-4 font-medium">You (Voice)</span>
+                      <span className="text-white mt-4 font-medium">You (Audio Only)</span>
                     </div>
                   ) : (
                     <>
-                      <VideoPlayer stream={cameraStream} isLocal={true} />
-                      <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1.5 rounded-lg shadow backdrop-blur-sm">You (Camera)</div>
+                      <div className={isVideoActive ? 'w-full h-full' : 'hidden'}>
+                        <VideoPlayer stream={cameraStream} isLocal={true} />
+                      </div>
+                      
+                      {!isVideoActive && (
+                        <div className="flex flex-col items-center animate-pulse">
+                          <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(37,99,235,0.6)]">
+                             <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                          </div>
+                          <span className="text-white mt-4 font-medium">You (Audio Only)</span>
+                        </div>
+                      )}
+
+                      {isVideoActive && (
+                        <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1.5 rounded-lg shadow backdrop-blur-sm">You (Camera)</div>
+                      )}
                     </>
                   )}
                 </div>
@@ -639,18 +662,23 @@ export default function RoomPage() {
                 const hasVideo = stream.getVideoTracks().length > 0;
                 return (
                   <div key={peerId} className="relative flex-1 min-w-[350px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
-                    {!hasVideo ? (
+                    
+                    {/* Always render the player so audio works! We just hide it visually if no video */}
+                    <div className={hasVideo ? 'w-full h-full' : 'hidden'}>
+                      <VideoPlayer stream={stream} />
+                    </div>
+
+                    {!hasVideo && (
                       <div className="flex flex-col items-center animate-pulse">
                         <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(37,99,235,0.6)]">
                            <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                         </div>
                         <span className="text-white mt-4 font-medium">Peer {peerId.substring(0,4)}</span>
                       </div>
-                    ) : (
-                      <>
-                        <VideoPlayer stream={stream} />
-                        <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1.5 rounded-lg shadow backdrop-blur-sm">Peer {peerId.substring(0, 4)}</div>
-                      </>
+                    )}
+                    
+                    {hasVideo && (
+                      <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1.5 rounded-lg shadow backdrop-blur-sm">Peer {peerId.substring(0, 4)}</div>
                     )}
                   </div>
                 );
