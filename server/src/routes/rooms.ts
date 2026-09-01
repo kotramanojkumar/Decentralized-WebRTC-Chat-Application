@@ -122,7 +122,7 @@ router.get('/my-rooms/:userId', async (req: Request, res: Response) => {
     const { userId } = req.params;
     const rooms = await prisma.room.findMany({
       where: { 
-        createdById: userId,
+        createdById: userId as string,
         isActive: true
       },
       orderBy: { createdAt: 'desc' }
