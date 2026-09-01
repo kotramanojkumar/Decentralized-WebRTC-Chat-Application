@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [taskNote, setTaskNote] = useState('');
   const [taskDate, setTaskDate] = useState('');
   const [taskTime, setTaskTime] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -198,9 +199,30 @@ export default function DashboardPage() {
   
   const deleteTask = async (id: string) => {
     try {
-      await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
-    } catch(e) {}
-    setTasks(tasks.filter(t => t.id !== id));
+      const res = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setTasks(tasks.filter(t => t.id !== id));
+      }
+    } catch (e) {
+      alert('Failed to delete task');
+    }
+  };
+
+  const updateTask = async (id: string, updatedHeading: string, updatedNote: string, updatedDate: string, updatedTime: string) => {
+    try {
+      const targetDate = new Date(`${updatedDate}T${updatedTime}`);
+      const res = await fetch(`${API_URL}/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heading: updatedHeading, note: updatedNote, targetDate: targetDate.toISOString() })
+      });
+      if (res.ok) {
+        setTasks(tasks.map(t => t.id === id ? { ...t, heading: updatedHeading, note: updatedNote, date: updatedDate, time: updatedTime } : t));
+        setEditingTaskId(null);
+      }
+    } catch (e) {
+      alert('Failed to update task');
+    }
   };
 
   // Ask for notification permission on mount for the simulation
@@ -481,24 +503,50 @@ export default function DashboardPage() {
                     onChange={() => toggleTask(task.id)}
                     className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
                   />
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-medium text-sm truncate ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                      {task.heading}
-                    </h3>
-                    {task.note && (
-                      <p className={`text-xs mt-1 ${task.done ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}`}>
-                        {task.note}
-                      </p>
-                    )}
-                    {(task.date || task.time) && (
-                      <div className="flex gap-2 mt-2 text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 inline-block px-2 py-0.5 rounded">
-                        {task.date} {task.time} (Reminder Scheduled)
-                      </div>
-                    )}
+                  {editingTaskId === task.id ? (
+                    <div className="flex-1 min-w-0">
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.target as HTMLFormElement);
+                        updateTask(task.id, formData.get('heading') as string, formData.get('note') as string, formData.get('date') as string, formData.get('time') as string);
+                      }} className="flex flex-col gap-2">
+                        <input name="heading" defaultValue={task.heading} required className="w-full text-sm border p-1 rounded dark:bg-gray-700 dark:border-gray-600" placeholder="Heading" />
+                        <input name="note" defaultValue={task.note} className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" placeholder="Notes" />
+                        <div className="flex gap-2">
+                          <input type="date" name="date" defaultValue={task.date} required className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
+                          <input type="time" name="time" defaultValue={task.time} required className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                          <button type="submit" className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Save</button>
+                          <button type="button" onClick={() => setEditingTaskId(null)} className="text-xs bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Cancel</button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`font-medium text-sm truncate ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
+                        {task.heading}
+                      </h3>
+                      {task.note && (
+                        <p className={`text-xs mt-1 ${task.done ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}`}>
+                          {task.note}
+                        </p>
+                      )}
+                      {(task.date || task.time) && (
+                        <div className="flex gap-2 mt-2 text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 inline-block px-2 py-0.5 rounded">
+                          {task.date} {task.time} (Reminder Scheduled)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <button onClick={() => setEditingTaskId(task.id)} className="text-gray-400 hover:text-indigo-500 p-1">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 p-1">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
                   </div>
-                  <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 p-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
                 </div>
               ))}
               {tasks.length === 0 && !isAddingTask && <p className="text-sm text-gray-500 text-center mt-8">No tasks yet. Click "Add Task" to get started and automatically schedule reminders!</p>}

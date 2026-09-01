@@ -87,6 +87,29 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
+// Update task
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { heading, note, targetDate, isCompleted } = req.body;
+    
+    const updateData: any = {};
+    if (heading !== undefined) updateData.heading = heading;
+    if (note !== undefined) updateData.note = note;
+    if (targetDate !== undefined) updateData.targetDate = new Date(targetDate);
+    if (isCompleted !== undefined) updateData.isCompleted = isCompleted;
+
+    const task = await prisma.task.update({
+      where: { id },
+      data: updateData
+    });
+    res.json({ task });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete task
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
