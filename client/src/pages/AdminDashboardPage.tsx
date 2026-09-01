@@ -88,8 +88,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading...</div>;
-  if (!isAdmin) return null;
+  if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading Server Data...</div>;
+  if (!isAdmin) return <div className="min-h-screen bg-gray-900 text-red-500 flex flex-col items-center justify-center"><h1 className="text-3xl font-bold mb-4">Access Denied</h1><p>You do not have permission to view this page, or the server is still booting up.</p><button onClick={() => navigate('/dashboard')} className="mt-4 text-blue-400">Go back to Dashboard</button></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-8">
