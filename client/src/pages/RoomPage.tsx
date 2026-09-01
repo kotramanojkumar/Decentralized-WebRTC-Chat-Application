@@ -107,6 +107,21 @@ export default function RoomPage() {
           fileTransferRef.current.handleChunk(payload.chunk, payload.offset);
         } else if (payload.type === 'file-complete') {
           fileTransferRef.current.handleComplete(payload.fileId);
+        } else if (payload.type === 'end-call') {
+          // If the other peer clicked end call, we stop our cameras too and show an alert
+          setCameraStream(prev => {
+             if (prev) prev.getTracks().forEach(t => t.stop());
+             return null;
+          });
+          setScreenStream(prev => {
+             if (prev) prev.getTracks().forEach(t => t.stop());
+             return null;
+          });
+          setIsVideoActive(false);
+          setIsVoiceActive(false);
+          setIsScreenSharing(false);
+          setIsMuted(false);
+          alert('The other person ended the voice/video call. You are still in the chat room.');
         } else {
           const now = new Date();
           setMessages(prev => [
@@ -272,11 +287,22 @@ export default function RoomPage() {
   const endCall = () => {
     if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
     if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+    setCameraStream(null);
+    setScreenStream(null);
+    setIsVideoActive(false);
+    setIsVoiceActive(false);
+    setIsScreenSharing(false);
+    setIsMuted(false);
     
-    if (socket) {
-      socket.emit('close-room', roomId);
-    }
-    navigate('/dashboard');
+    // Tell other peers to also end their media
+    Object.keys(peers).forEach(peerId => {
+      if (peers[peerId] === 'connected') {
+        const channel = webrtcManagerRef.current?.getDataChannel(peerId);
+        if (channel && channel.readyState === 'open') {
+          webrtcManagerRef.current?.sendMessage(peerId, JSON.stringify({ type: 'end-call' }));
+        }
+      }
+    });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -571,6 +597,7 @@ export default function RoomPage() {
                   });
                   const data = await res.json();
                   if (res.ok) {
+                    if (socket) socket.emit('close-room', roomId);
                     alert('Room closed successfully.');
                     navigate('/dashboard');
                   } else {
