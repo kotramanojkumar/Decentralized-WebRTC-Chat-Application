@@ -45,6 +45,16 @@ router.post('/create', async (req: Request, res: Response) => {
 
     const secureInviteCode = (customRoomId && customRoomId.trim().length > 0) ? customRoomId.trim() : crypto.randomUUID();
 
+    // If the room code is taken but the room is closed/inactive, delete it to free up the code!
+    const existing = await prisma.room.findUnique({ where: { secureInviteCode } });
+    if (existing) {
+      if (!existing.isActive) {
+        await prisma.room.delete({ where: { secureInviteCode } });
+      } else {
+        return res.status(400).json({ error: 'This custom room code is already taken and currently active. Please choose another one.' });
+      }
+    }
+
     let passwordHash = null;
     if (password && password.trim().length > 0) {
       passwordHash = await bcrypt.hash(password.trim(), 10);
