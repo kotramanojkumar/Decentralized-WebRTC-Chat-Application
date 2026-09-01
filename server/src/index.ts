@@ -27,6 +27,8 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
+import adminRoutes from './routes/admin';
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
@@ -34,6 +36,7 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy' });

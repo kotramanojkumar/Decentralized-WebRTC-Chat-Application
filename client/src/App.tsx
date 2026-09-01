@@ -9,6 +9,7 @@ import ContactsPage from './pages/ContactsPage';
 import SettingsPage from './pages/SettingsPage';
 import RoomPage from './pages/RoomPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function App() {
   useEffect(() => {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
