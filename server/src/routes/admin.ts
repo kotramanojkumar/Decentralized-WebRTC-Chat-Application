@@ -50,7 +50,7 @@ router.get('/users', verifyAdmin, async (req: Request, res: Response) => {
 // Update a user
 router.put('/users/:id', verifyAdmin, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { displayName, username, role } = req.body;
     
     // Clean username (remove leading @ if present)
@@ -70,7 +70,7 @@ router.put('/users/:id', verifyAdmin, async (req: Request, res: Response) => {
 // Delete a user
 router.delete('/users/:id', verifyAdmin, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     
     await prisma.$transaction([
       prisma.task.deleteMany({ where: { userId: id } }),
