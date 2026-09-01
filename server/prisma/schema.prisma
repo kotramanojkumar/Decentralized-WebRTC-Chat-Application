@@ -40,7 +40,7 @@ model Room {
   id               String       @id @default(uuid())
   secureInviteCode String       @unique
   createdById      String
-  createdBy        User         @relation("RoomCreator", fields: [createdById], references: [id])
+  createdBy        User         @relation("RoomCreator", fields: [createdById], references: [id], onDelete: Cascade)
   passwordHash     String?
   scheduledFor     DateTime?
   type             String       @default("group")
@@ -55,8 +55,8 @@ model RoomMember {
   userId   String
   joinedAt DateTime @default(now())
 
-  room Room @relation(fields: [roomId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([roomId, userId])
 }
@@ -67,8 +67,8 @@ model Contact {
   targetId  String
   createdAt DateTime @default(now())
 
-  owner  User @relation("ContactOwner", fields: [ownerId], references: [id])
-  target User @relation("ContactTarget", fields: [targetId], references: [id])
+  owner  User @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  target User @relation("ContactTarget", fields: [targetId], references: [id], onDelete: Cascade)
 
   @@unique([ownerId, targetId])
 }
@@ -80,8 +80,8 @@ model ContactRequest {
   status      String   @default("pending") // pending, accepted, declined
   createdAt   DateTime @default(now())
 
-  requester User @relation("Requester", fields: [requesterId], references: [id])
-  requested User @relation("Requested", fields: [requestedId], references: [id])
+  requester User @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requested User @relation("Requested", fields: [requestedId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, requestedId])
 }
@@ -93,7 +93,7 @@ model DeviceSession {
   isActive   Boolean  @default(true)
   lastSeen   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SecurityPolicy {
@@ -110,7 +110,7 @@ model SecurityEvent {
   details   String
   timestamp DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Task {
@@ -123,7 +123,7 @@ model Task {
   emailSent   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LoginHistory {
@@ -134,7 +134,7 @@ model LoginHistory {
   status    String   // 'SUCCESS' | 'FAILED'
   timestamp DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Feedback {
@@ -144,5 +144,5 @@ model Feedback {
   message   String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
