@@ -1,5 +1,12 @@
-// We proxy emails through the Vercel Frontend API to bypass Render's SMTP block on Free Tier.
-const VERCEL_API_URL = process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/api/send-email` : 'https://decentralized-web-rtc-chat-applicat.vercel.app/api/send-email';
+const getVercelUrl = () => {
+  if (process.env.CLIENT_URL) {
+    const baseUrl = process.env.CLIENT_URL.endsWith('/') ? process.env.CLIENT_URL.slice(0, -1) : process.env.CLIENT_URL;
+    return `${baseUrl}/api/send-email`;
+  }
+  return 'https://decentralized-web-rtc-chat-applicat.vercel.app/api/send-email';
+};
+
+const VERCEL_API_URL = getVercelUrl();
 
 const sendViaProxy = async (payload: any) => {
   try {

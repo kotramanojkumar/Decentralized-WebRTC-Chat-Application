@@ -7,30 +7,15 @@ const prisma = new PrismaClient();
 
 // Setup Gmail SMTP for real emails
 let transporter: nodemailer.Transporter | null = null;
-async function setupEmail() {
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'kmk.kmk0789@gmail.com', 
-      pass: 'junspghhslbbgbwy', // User's app password (spaces removed)
-    },
-  });
-  console.log('Real Gmail SMTP ready for sending Tasks!');
-}
-setupEmail().catch(console.error);
+import { sendEmail } from '../utils/mailer';
 
 // Send Email logic
 async function sendTaskEmail(userEmail: string, heading: string, note?: string) {
-  if (!transporter) return;
   try {
-    const info = await transporter.sendMail({
-      from: '"Decentralized Chat Reminder" <kmk.kmk0789@gmail.com>',
-      to: userEmail,
-      subject: `Reminder: ${heading}`,
-      text: `Hello,\n\nThis is a reminder for your task: ${heading}\n\nNote: ${note || 'No additional notes'}\n\nStay secure!`,
-      html: `<h3>Hello,</h3><p>This is a reminder for your task: <strong>${heading}</strong></p><p>Note: ${note || 'No additional notes'}</p><p>Stay secure!</p>`,
-    });
-    console.log(`Task Reminder Email successfully sent to ${userEmail}! (Message ID: ${info.messageId})`);
+    const subject = `Reminder: ${heading}`;
+    const text = `Hello,\n\nThis is a reminder for your task: ${heading}\n\nNote: ${note || 'No additional notes'}\n\nStay secure!`;
+    await sendEmail(userEmail, subject, text);
+    console.log(`Task Reminder Email scheduled for proxy to ${userEmail}!`);
   } catch (error) {
     console.error('Failed to send task email:', error);
   }
