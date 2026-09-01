@@ -175,7 +175,10 @@ export class WebRTCManager {
   }
 
   private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
-    const pc = this.createPeerConnection(peerId);
+    let pc = this.peerConnections.get(peerId);
+    if (!pc) {
+      pc = this.createPeerConnection(peerId);
+    }
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
     
     const answer = await pc.createAnswer();
