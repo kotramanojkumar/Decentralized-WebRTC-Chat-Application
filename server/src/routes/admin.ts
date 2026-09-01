@@ -91,4 +91,30 @@ router.get('/check', verifyAdmin, (req, res) => {
   res.json({ isAdmin: true });
 });
 
+// Broadcast Global Email
+router.post('/broadcast', verifyAdmin, async (req: Request, res: Response) => {
+  try {
+    const { subject, message } = req.body;
+    if (!subject || !message) return res.status(400).json({ error: 'Subject and message are required' });
+
+    const users = await prisma.user.findMany({ select: { email: true } });
+    const { sendEmail } = require('../utils/mailer');
+    
+    // Send in background to not block response
+    setTimeout(async () => {
+      for (const user of users) {
+        try {
+          await sendEmail(user.email, subject, message);
+        } catch (e) {
+          console.error(`Failed to send broadcast to ${user.email}`);
+        }
+      }
+    }, 100);
+
+    res.json({ success: true, count: users.length });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error sending broadcast' });
+  }
+});
+
 export default router;

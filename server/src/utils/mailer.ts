@@ -43,3 +43,17 @@ export const sendPasswordResetEmail = async (to: string, resetLink: string) => {
 
   await transporter.sendMail(mailOptions);
 };
+
+export const sendEmail = async (to: string, subject: string, message: string) => {
+  const mailOptions = {
+    from: 'kmk.kmk0789@gmail.com',
+    to,
+    subject,
+    text: message,
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+             <h2 style="color: #4f46e5;">Message from Admin</h2>
+             <p style="white-space: pre-wrap;">${message}</p>
+           </div>`
+  };
+  await transporter.sendMail(mailOptions);
+};

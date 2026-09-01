@@ -103,6 +103,56 @@ export default function AdminDashboardPage() {
 
         {error && <div className="bg-red-500/20 text-red-500 p-4 rounded mb-6">{error}</div>}
 
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+            Send Global Email Announcement
+          </h2>
+          <div className="space-y-4">
+            <input 
+              id="broadcastSubject"
+              type="text" 
+              placeholder="Email Subject"
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <textarea 
+              id="broadcastMessage"
+              placeholder="Type your message to all users here..."
+              rows={4}
+              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            />
+            <button 
+              onClick={async () => {
+                const subject = (document.getElementById('broadcastSubject') as HTMLInputElement).value;
+                const message = (document.getElementById('broadcastMessage') as HTMLTextAreaElement).value;
+                if (!subject || !message) return alert('Subject and message required');
+                if (!confirm('Are you sure you want to email EVERY user?')) return;
+                
+                try {
+                  const token = localStorage.getItem('token');
+                  const res = await fetch(`${API_URL}/admin/broadcast`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, message })
+                  });
+                  if (res.ok) {
+                    alert('Broadcast sent to all users!');
+                    (document.getElementById('broadcastSubject') as HTMLInputElement).value = '';
+                    (document.getElementById('broadcastMessage') as HTMLTextAreaElement).value = '';
+                  } else {
+                    alert('Failed to send broadcast');
+                  }
+                } catch (e) {
+                  alert('Error sending broadcast');
+                }
+              }}
+              className="bg-indigo-600 text-white font-medium py-2 px-6 rounded-lg hover:bg-indigo-700 transition"
+            >
+              Send to All Users
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
