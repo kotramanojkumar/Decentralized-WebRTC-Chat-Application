@@ -121,7 +121,7 @@ export default function RoomPage() {
           setIsVoiceActive(false);
           setIsScreenSharing(false);
           setIsMuted(false);
-          alert('The other person ended the voice/video call. You are still in the chat room.');
+          // Removed alert for a cleaner UI experience
         } else {
           const now = new Date();
           setMessages(prev => [
