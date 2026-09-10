@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
 import { WebRTCManager } from '../webrtc/WebRTCManager';
 import { FileTransferManager } from '../file-transfer/FileTransferManager';
+import { aiService } from '../ai/AIService';
 import VideoPlayer from '../components/VideoPlayer';
 
 interface ChatMessage {
@@ -42,12 +43,12 @@ export default function RoomPage() {
   const [ephemeralTTL, setEphemeralTTL] = useState<number>(0);
   
   const [fileProgress, setFileProgress] = useState<number>(0);
-  const [_currentChunkSize, setCurrentChunkSize] = useState<number>(16384);
+  // const [_currentChunkSize, setCurrentChunkSize] = useState<number>(16384);
   
   const [securityPolicy, setSecurityPolicy] = useState<any>(null);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const emojis = ['😀','😂','🥰','😎','😭','🥺','😡','👍','👎','❤️','🔥','✨','🎉','👀','🙌','🤔','💀','💯','✅','❌', '🙏', '👏', '💔', '🌟'];
+  const emojis = ['Ã°Å¸Ëœâ‚¬','Ã°Å¸Ëœâ€š','Ã°Å¸Â¥Â°','Ã°Å¸ËœÅ½','Ã°Å¸ËœÂ­','Ã°Å¸Â¥Âº','Ã°Å¸ËœÂ¡','Ã°Å¸â€˜ ','Ã°Å¸â€˜Å½','Ã¢ Â¤Ã¯Â¸ ','Ã°Å¸â€Â¥','Ã¢Å“Â¨','Ã°Å¸Å½â€°','Ã°Å¸â€˜â‚¬','Ã°Å¸â„¢Å’','Ã°Å¸Â¤â€','Ã°Å¸â€™â‚¬','Ã°Å¸â€™Â¯','Ã¢Å“â€¦','Ã¢ Å’', 'Ã°Å¸â„¢ ', 'Ã°Å¸â€˜ ', 'Ã°Å¸â€™â€', 'Ã°Å¸Å’Å¸'];
   
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(localStorage.getItem('dashboardNotes') || '');
@@ -159,8 +160,17 @@ export default function RoomPage() {
       setFileProgress(progress);
     };
 
-    fileTransferRef.current.onAdaptiveChunkSizeChanged = (size) => {
-      setCurrentChunkSize(size);
+    fileTransferRef.current.onAdaptivePolicyChanged = (_policy) => {
+      // In Phase 14 we'll expose this. For now, ignore it to clear the TS error.
+      // console.log("Adaptive policy changed:", _policy);
+    };
+
+    fileTransferRef.current.onNetworkMetrics = (metrics) => {
+      aiService.setContext('networkMetrics', metrics);
+    };
+
+    fileTransferRef.current.onMediaMetrics = (metrics) => {
+      aiService.setContext('mediaMetrics', metrics);
     };
 
     fileTransferRef.current.onFileComplete = (blob, metadata) => {
@@ -315,8 +325,9 @@ export default function RoomPage() {
           await webrtcManagerRef.current?.sendMessage(peerId, JSON.stringify(payload));
         };
         const channel = webrtcManagerRef.current?.getDataChannel(peerId);
-        if (channel) {
-          fileTransferRef.current.sendFile(file, channel, sendSecurePayload);
+        const pc = webrtcManagerRef.current?.getPeerConnection(peerId);
+        if (channel && pc) {
+          fileTransferRef.current.sendFile(file, pc, channel, sendSecurePayload);
         }
       }
     });
@@ -376,7 +387,7 @@ export default function RoomPage() {
     try {
       const fullText = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
       const summary = await securityEngineRef.current.askAISummarize(fullText);
-      setAiSummary("✨ Local AI Summary\n\n" + summary + "\n\n🔒 Processed locally on this device");
+      setAiSummary("Ã¢Å“Â¨ Local AI Summary\n\n" + summary + "\n\nÃ°Å¸â€â€™ Processed locally on this device");
     } catch (e) {
       console.error(e);
       setAiSummary("Failed to generate summary.");
@@ -395,7 +406,7 @@ export default function RoomPage() {
       securityEngineRef.current.summarizerString = `Extract bullet point action items, decisions, and deadlines from the following conversation:\n\n\${text}`;
       const summary = await securityEngineRef.current.askAISummarize(fullText);
       securityEngineRef.current.summarizerString = originalPrompt;
-      setAiSummary("✨ Local AI Action Items\n\n" + summary + "\n\n🔒 Processed locally on this device");
+      setAiSummary("Ã¢Å“Â¨ Local AI Action Items\n\n" + summary + "\n\nÃ°Å¸â€â€™ Processed locally on this device");
     } catch (e) {
       console.error(e);
       setAiSummary("Failed to generate action items.");
@@ -454,7 +465,7 @@ export default function RoomPage() {
       });
 
       socketIo.on('room-full', (data: { message: string; detail?: string; type?: string }) => {
-        const title = data.message || '🔒 Access Denied';
+        const title = data.message || 'Ã°Å¸â€â€™ Access Denied';
         const detail = data.detail || 'This room is already full.';
         alert(`${title}\n\n${detail}\n\nYou will be redirected to the Dashboard.`);
         navigate('/dashboard');
@@ -518,7 +529,7 @@ export default function RoomPage() {
         <div>
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setShowGroupInfo(true)}>
             <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center text-xl overflow-hidden shadow-sm border border-gray-600">
-               {roomType === 'p2p' ? '👤' : '👥'}
+               {roomType === 'p2p' ? 'Ã°Å¸â€˜Â¤' : 'Ã°Å¸â€˜Â¥'}
             </div>
             <div>
               <h1 className="text-lg font-semibold group-hover:underline">
@@ -544,8 +555,8 @@ export default function RoomPage() {
             <span className="flex items-center gap-1.5 text-green-600 dark:text-green-500">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> P2P Connected
             </span>
-            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">🔐 Encrypted</span>
-            <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">✨ AI Local</span>
+            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">Ã°Å¸â€Â Encrypted</span>
+            <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">Ã¢Å“Â¨ AI Local</span>
           </div>
         </div>
 
@@ -621,7 +632,7 @@ export default function RoomPage() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 Quick Notes
               </h3>
-              <button onClick={() => setShowNotes(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+              <button onClick={() => setShowNotes(false)} className="text-gray-500 hover:text-gray-700">Ã¢Å“â€¢</button>
             </div>
             <textarea
               value={notes}
@@ -755,9 +766,9 @@ export default function RoomPage() {
         <div className={`flex-1 flex flex-col border-l relative min-w-[300px] ${preferences.darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           
           {securityPolicy && (
-            <div className={`p-3 text-center text-xs shadow-sm z-10 border-b cursor-pointer hover:opacity-90 ${securityPolicy.level === 'HIGHLY_CONFIDENTIAL' ? 'bg-red-100 text-red-900 border-red-200' : securityPolicy.level === 'CONFIDENTIAL' ? 'bg-yellow-100 text-yellow-900 border-yellow-200' : 'bg-[#ffeecd] text-gray-700 border-[#eeddbe]'}`} onClick={() => alert(`Security Analysis\n\nClassification: ${securityPolicy.level}\nWhy? Sensitivity score analyzed locally.\n\nApplied Policy:\n✓ Local AI Only\n✓ Ephemeral TTL: ${securityPolicy.maxTTL > 0 ? securityPolicy.maxTTL + 's' : 'Off'}`)}>
+            <div className={`p-3 text-center text-xs shadow-sm z-10 border-b cursor-pointer hover:opacity-90 ${securityPolicy.level === 'HIGHLY_CONFIDENTIAL' ? 'bg-red-100 text-red-900 border-red-200' : securityPolicy.level === 'CONFIDENTIAL' ? 'bg-yellow-100 text-yellow-900 border-yellow-200' : 'bg-[#ffeecd] text-gray-700 border-[#eeddbe]'}`} onClick={() => alert(`Security Analysis\n\nClassification: ${securityPolicy.level}\nWhy? Sensitivity score analyzed locally.\n\nApplied Policy:\nÃ¢Å“â€œ Local AI Only\nÃ¢Å“â€œ Ephemeral TTL: ${securityPolicy.maxTTL > 0 ? securityPolicy.maxTTL + 's' : 'Off'}`)}>
               <div className="font-bold tracking-wide uppercase flex items-center justify-center gap-1 mb-0.5">
-                🛡 {securityPolicy.level.replace('_', ' ')}
+                Ã°Å¸â€ºÂ¡ {securityPolicy.level.replace('_', ' ')}
               </div>
               <div className="opacity-80 font-medium">Enhanced privacy policy active</div>
             </div>
@@ -784,7 +795,7 @@ export default function RoomPage() {
                       
                       {msg.isFile && msg.fileUrl ? (
                         <a href={msg.fileUrl} download={msg.fileName} className="underline font-medium break-all flex items-center gap-2">
-                          📎 {msg.fileName}
+                          Ã°Å¸â€œÅ½ {msg.fileName}
                         </a>
                       ) : (
                         <span className="break-words whitespace-pre-wrap">{msg.text}</span>
@@ -793,7 +804,7 @@ export default function RoomPage() {
                       <div className="flex justify-between items-end mt-1 gap-4">
                         {msg.expiresAt ? (
                           <div className={`text-[10px] font-medium flex items-center gap-1 ${preferences.darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
-                            ⏱ Disappears in {Math.max(0, Math.ceil((msg.expiresAt.getTime() - Date.now()) / 1000))}s
+                            Ã¢ÂÂ± Disappears in {Math.max(0, Math.ceil((msg.expiresAt.getTime() - Date.now()) / 1000))}s
                           </div>
                         ) : <div></div>}
                         <div className="text-[10px] text-right opacity-70 whitespace-nowrap">
@@ -814,7 +825,7 @@ export default function RoomPage() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                   AI Summary
                 </span>
-                <button onClick={() => setAiSummary('')} className="text-gray-400 hover:text-gray-600">✕</button>
+                <button onClick={() => setAiSummary('')} className="text-gray-400 hover:text-gray-600">Ã¢Å“â€¢</button>
               </div>
               <p className="opacity-90">{aiSummary}</p>
             </div>
@@ -853,7 +864,7 @@ export default function RoomPage() {
                 >
                   {isSummarizing ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  ) : '✨ AI'}
+                  ) : 'Ã¢Å“Â¨ AI'}
                 </button>
                 
                 {showAiMenu && (
@@ -930,7 +941,7 @@ export default function RoomPage() {
         {showGroupInfo && (
           <div className={`w-80 flex flex-col border-l shadow-2xl z-30 ${preferences.darkMode ? 'bg-[#111b21] border-gray-700 text-[#e9edef]' : 'bg-[#f0f2f5] border-gray-200 text-gray-900'}`}>
             <div className={`p-4 flex items-center gap-4 font-semibold text-lg border-b ${preferences.darkMode ? 'bg-[#202c33] border-gray-700' : 'bg-white border-gray-200'}`}>
-               <button onClick={() => setShowGroupInfo(false)} className="hover:opacity-70">✕</button>
+               <button onClick={() => setShowGroupInfo(false)} className="hover:opacity-70">Ã¢Å“â€¢</button>
                {roomType === 'p2p' ? 'Contact Info' : 'Group Info'}
             </div>
             
@@ -938,10 +949,10 @@ export default function RoomPage() {
               {/* Group Profile Photo & Name */}
               <div className={`p-6 flex flex-col items-center justify-center border-b mb-2 shadow-sm ${preferences.darkMode ? 'bg-[#111b21] border-gray-800' : 'bg-white border-gray-200'}`}>
                 <div className="w-40 h-40 rounded-full bg-gray-500 mb-4 flex items-center justify-center text-4xl overflow-hidden shadow-lg border-4 border-[#00a884]">
-                   {roomType === 'p2p' ? '👤' : '👥'}
+                   {roomType === 'p2p' ? 'Ã°Å¸â€˜Â¤' : 'Ã°Å¸â€˜Â¥'}
                 </div>
                 <h2 className="text-xl font-medium">{roomType === 'p2p' ? 'Direct Contact' : 'Group Conversation'}</h2>
-                <p className="text-sm opacity-60 mt-1">{roomType === 'p2p' ? 'Direct Peer Connection' : `Group • ${Object.keys(peers).length + 1} participants`}</p>
+                <p className="text-sm opacity-60 mt-1">{roomType === 'p2p' ? 'Direct Peer Connection' : `Group Ã¢â‚¬Â¢ ${Object.keys(peers).length + 1} participants`}</p>
               </div>
 
               {/* Description & Invite */}
@@ -962,7 +973,7 @@ export default function RoomPage() {
                    
                    {/* Self */}
                    <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white">👤</div>
+                     <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white">Ã°Å¸â€˜Â¤</div>
                      <div className="flex-1">
                        <div className="font-medium">You</div>
                        <div className="text-xs opacity-60">Admin</div>
@@ -973,7 +984,7 @@ export default function RoomPage() {
                    {/* Peers */}
                    {Object.keys(peers).map(peerId => (
                      <div key={peerId} className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white">👤</div>
+                       <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white">Ã°Å¸â€˜Â¤</div>
                        <div className="flex-1">
                          <div className="font-medium">Peer {peerId.substring(0, 4)}</div>
                          <div className="text-xs opacity-60">Participant</div>
@@ -992,5 +1003,7 @@ export default function RoomPage() {
     </div>
   );
 }
+
+
 
 

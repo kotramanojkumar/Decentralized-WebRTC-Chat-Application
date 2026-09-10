@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 import NetworkBackground from '../components/NetworkBackground';
@@ -344,6 +344,10 @@ export default function DashboardPage() {
                 </span>
               </button>
             )}
+            <button className="px-4 py-2 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-white/80 dark:hover:bg-white/10 transition flex items-center gap-1 border border-indigo-200 dark:border-indigo-800" onClick={() => navigate('/research')}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              Research
+            </button>
             <button className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10 transition" onClick={() => navigate('/contacts')}>Contacts</button>
             <button className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10 transition" onClick={() => navigate('/settings')}>Settings</button>
             <button className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition" onClick={() => navigate('/')}>Logout</button>
@@ -494,7 +498,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-sm text-gray-500 mt-1">
                       Type: {room.type === 'p2p' ? 'Direct Message' : 'Group Chat'} 
-                      {room.hasPassword && ' 🔒'}
+                      {room.hasPassword && ' ðŸ”’'}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -519,7 +523,7 @@ export default function DashboardPage() {
 
         <div className="grid gap-6">
           {/* Tasks List */}
-          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/50 dark:border-white/10 transition-all flex flex-col min-h-[300px]">
+          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-2xl p-6 rounded-3xl shadow-xl shadow-indigo-500/10 dark:shadow-indigo-500/20 border border-white/60 dark:border-white/10 hover:-translate-y-2 hover:shadow-2xl hover:shadow-indigo-500/30 transition-all duration-500 ease-out flex flex-col min-h-[300px]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold dark:text-white flex items-center gap-2">
                 <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -635,4 +639,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 

@@ -10,6 +10,8 @@ import SettingsPage from './pages/SettingsPage';
 import RoomPage from './pages/RoomPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ResearchPage from './pages/ResearchPage';
+import AIAssistantOverlay from './components/AIAssistantOverlay';
 
 function App() {
   useEffect(() => {
@@ -35,8 +37,10 @@ function App() {
         <Route path="/room/:roomId" element={<RoomPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/research" element={<ResearchPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <AIAssistantOverlay />
     </BrowserRouter>
   )
 }

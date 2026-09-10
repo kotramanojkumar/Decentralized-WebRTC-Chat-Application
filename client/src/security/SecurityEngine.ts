@@ -1,4 +1,4 @@
-export type SecurityLevel = 'NORMAL' | 'CONFIDENTIAL' | 'HIGHLY_CONFIDENTIAL';
+﻿export type SecurityLevel = 'NORMAL' | 'CONFIDENTIAL' | 'HIGHLY_CONFIDENTIAL';
 
 export const SecurityLevel = {
   NORMAL: 'NORMAL' as SecurityLevel,
@@ -128,4 +128,14 @@ export class SecurityEngine {
       this.worker.postMessage({ action: 'classify', text, id });
     });
   }
+
+  // Phase 15: AI Tool Registry & Permission Guard
+  public evaluateAIPermission(_actionName: string, riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'): boolean {
+    if (riskLevel === 'HIGH') return false; // Hard block high-risk AI actions by default
+    if (this.currentPolicy.level === SecurityLevel.HIGHLY_CONFIDENTIAL && riskLevel === 'MEDIUM') {
+      return false; // Block medium risk if in highly confidential mode
+    }
+    return true; // Allow otherwise
+  }
 }
+

@@ -222,6 +222,10 @@ export class WebRTCManager {
     }
   }
 
+  public getPeerConnection(peerId: string): RTCPeerConnection | undefined {
+    return this.peerConnections.get(peerId);
+  }
+
   public getDataChannel(peerId: string): RTCDataChannel | undefined {
     return this.dataChannels.get(peerId);
   }

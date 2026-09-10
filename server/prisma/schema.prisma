@@ -34,6 +34,7 @@ model User {
   tasks          Task[]
   loginHistory   LoginHistory[]
   feedbacks      Feedback[]
+  experiments    Experiment[]
 }
 
 model Room {
@@ -145,4 +146,45 @@ model Feedback {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Experiment {
+  id                String   @id @default(uuid())
+  userId            String
+  name              String
+  transferMode      String   // 'BASELINE' | 'ADAPTIVE'
+  fileSize          Int
+  networkScenario   String
+  communicationType String
+  duration          Int      // seconds
+  status            String   @default("RUNNING") // 'RUNNING' | 'COMPLETED' | 'FAILED'
+  completionTime    Int?     // milliseconds
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics           ExperimentMetric[]
+}
+
+model ExperimentMetric {
+  id              String   @id @default(uuid())
+  experimentId    String
+  timestamp       DateTime @default(now())
+  
+  transferRate    Float
+  chunkSize       Int
+  bufferAmount    Int
+  
+  rtt             Float
+  packetLoss      Float
+  jitter          Float
+  networkState    String
+  
+  audioLoss       Float
+  videoLoss       Float
+  framesDropped   Int
+  mediaState      String
+
+  strategy        String
+
+  experiment      Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
 }

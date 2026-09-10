@@ -1,3 +1,10 @@
+﻿import { NetworkMonitor } from '../research/NetworkMonitor';
+import type { NetworkMetrics } from '../research/NetworkMonitor';
+import { MediaQualityMonitor } from '../research/MediaQualityMonitor';
+import type { MediaMetrics } from '../research/MediaQualityMonitor';
+import { MediaDataCoordinator } from '../research/MediaDataCoordinator';
+import type { CoordinatorPolicy } from '../research/MediaDataCoordinator';
+
 export interface FileTransferMetadata {
   id: string;
   name: string;
@@ -6,29 +13,72 @@ export interface FileTransferMetadata {
   totalChunks: number;
 }
 
+export type TransferMode = 'BASELINE' | 'ADAPTIVE';
+
 export class FileTransferManager {
   private fileBuffer: ArrayBuffer[] = [];
   private receivedSize = 0;
   private currentMetadata: FileTransferMetadata | null = null;
-  private isPaused = false;
   
-  public onProgress: (progress: number) => void = () => {};
+  private isPaused = false;
+  private isCancelled = false;
+  private currentOffset = 0;
+  
+  // Research Engines
+  private networkMonitor = new NetworkMonitor();
+  private mediaMonitor = new MediaQualityMonitor();
+  private coordinator = new MediaDataCoordinator();
+
+  // private mode: TransferMode = 'ADAPTIVE';
+  private currentPolicy: CoordinatorPolicy = { strategy: 'OPTIMIZING', targetChunkSize: 65536, pacingDelayMs: 0 };
+
+  // Metrics tracking
+  private lastProgressTime = 0;
+  private lastProgressOffset = 0;
+
+  // Event Callbacks
+  public onProgress: (progress: number, transferRateBps: number) => void = () => {};
   public onFileComplete: (blob: Blob, metadata: FileTransferMetadata) => void = () => {};
-  public onAdaptiveChunkSizeChanged: (size: number) => void = () => {};
+  public onAdaptivePolicyChanged: (policy: CoordinatorPolicy) => void = () => {};
+  public onNetworkMetrics: (metrics: NetworkMetrics) => void = () => {};
+  public onMediaMetrics: (metrics: MediaMetrics) => void = () => {};
 
-  // Adaptive parameters
-  private currentChunkSize = 16384; // 16KB start
-  private readonly MIN_CHUNK_SIZE = 8192; // 8KB
-  private readonly MAX_CHUNK_SIZE = 262144; // 256KB
-  private readonly HIGH_WATER_MARK = 1048576; // 1MB buffer
+  constructor() {
+    this.networkMonitor.onMetricsUpdate = (m) => this.onNetworkMetrics(m);
+    this.mediaMonitor.onMetricsUpdate = (m) => this.onMediaMetrics(m);
+  }
 
-  public sendFile(
+  public setMode(mode: TransferMode) {
+    // this.mode = mode;
+    this.coordinator.setMode(mode === 'BASELINE');
+  }
+
+  public async sendFile(
     file: File, 
+    pc: RTCPeerConnection,
     dataChannel: RTCDataChannel, 
     sendSecurePayload: (payload: any) => Promise<void>
   ) {
+    this.isPaused = false;
+    this.isCancelled = false;
+    this.currentOffset = 0;
+    this.lastProgressTime = Date.now();
+    this.lastProgressOffset = 0;
+
+    // Phase 12/13: Start Research Monitors
+    this.networkMonitor.start(pc, dataChannel, 1000);
+    this.mediaMonitor.start(pc, 1000);
+
     const fileId = crypto.randomUUID();
-    const totalChunks = Math.ceil(file.size / this.currentChunkSize);
+    
+    // Evaluate initial policy
+    this.currentPolicy = this.coordinator.evaluate(
+      this.networkMonitor.currentMetrics,
+      this.mediaMonitor.currentMetrics,
+      dataChannel.bufferedAmount
+    );
+
+    const totalChunks = Math.ceil(file.size / this.currentPolicy.targetChunkSize); // Estimate
 
     const metadata: FileTransferMetadata = {
       id: fileId,
@@ -38,35 +88,36 @@ export class FileTransferManager {
       totalChunks
     };
 
-    // Send metadata first
-    sendSecurePayload({ type: 'file-metadata', metadata });
-
-    let offset = 0;
+    // Phase 11: Integrity & Ordering (Metadata prep)
+    await sendSecurePayload({ type: 'file-metadata', metadata });
 
     const readNextChunk = async () => {
-      if (this.isPaused) return;
-
-      // Adaptive Check: wait if buffer is too full
-      if (dataChannel.bufferedAmount > this.HIGH_WATER_MARK) {
-        // Drop chunk size slightly due to congestion
-        this.currentChunkSize = Math.max(this.MIN_CHUNK_SIZE, this.currentChunkSize / 2);
-        this.onAdaptiveChunkSizeChanged(this.currentChunkSize);
-        
-        // Wait for buffer to drain
-        dataChannel.onbufferedamountlow = () => {
-          dataChannel.onbufferedamountlow = null;
-          readNextChunk();
-        };
+      if (this.isCancelled) {
+        this.cleanup();
+        return;
+      }
+      if (this.isPaused) {
+        setTimeout(readNextChunk, 500);
         return;
       }
 
-      // Increase chunk size if network is smooth
-      if (dataChannel.bufferedAmount === 0 && this.currentChunkSize < this.MAX_CHUNK_SIZE) {
-        this.currentChunkSize = Math.min(this.MAX_CHUNK_SIZE, this.currentChunkSize * 2);
-        this.onAdaptiveChunkSizeChanged(this.currentChunkSize);
+      // Phase 6 & 8: Coordinator Evaluation
+      this.currentPolicy = this.coordinator.evaluate(
+        this.networkMonitor.currentMetrics,
+        this.mediaMonitor.currentMetrics,
+        dataChannel.bufferedAmount
+      );
+      this.onAdaptivePolicyChanged(this.currentPolicy);
+
+      // Phase 10: Back-pressure Handling
+      if (dataChannel.bufferedAmount > 1048576) { // 1MB Hard limit safety
+        setTimeout(readNextChunk, 100);
+        return;
       }
 
-      const slice = file.slice(offset, offset + this.currentChunkSize);
+      // Phase 9: Dynamic Chunk Sizing
+      const sliceSize = this.currentPolicy.targetChunkSize;
+      const slice = file.slice(this.currentOffset, this.currentOffset + sliceSize);
       const buffer = await slice.arrayBuffer();
       const base64Chunk = this.arrayBufferToBase64(buffer);
 
@@ -74,41 +125,71 @@ export class FileTransferManager {
         type: 'file-chunk',
         fileId,
         chunk: base64Chunk,
-        offset
+        offset: this.currentOffset
       });
 
-      offset += buffer.byteLength;
-      this.onProgress((offset / file.size) * 100);
+      this.currentOffset += buffer.byteLength;
+      
+      // Calculate Transfer Rate
+      const now = Date.now();
+      const timeDiff = (now - this.lastProgressTime) / 1000;
+      let transferRateBps = 0;
+      if (timeDiff >= 0.5) { // update rate every 500ms
+          transferRateBps = ((this.currentOffset - this.lastProgressOffset) * 8) / timeDiff;
+          this.lastProgressTime = now;
+          this.lastProgressOffset = this.currentOffset;
+      }
 
-      if (offset < file.size) {
-        // Process next chunk asynchronously to avoid blocking UI
-        setTimeout(readNextChunk, 0);
+      this.onProgress((this.currentOffset / file.size) * 100, transferRateBps);
+
+      if (this.currentOffset < file.size) {
+        // Phase 8: Adaptive Pacing
+        if (this.currentPolicy.pacingDelayMs > 0) {
+            setTimeout(readNextChunk, this.currentPolicy.pacingDelayMs);
+        } else {
+            setTimeout(readNextChunk, 0); // Event loop yield
+        }
       } else {
         await sendSecurePayload({ type: 'file-complete', fileId });
+        this.cleanup();
       }
     };
 
     readNextChunk();
   }
 
+  // --- Receiving Methods ---
   public handleMetadata(metadata: FileTransferMetadata) {
     this.currentMetadata = metadata;
     this.fileBuffer = [];
     this.receivedSize = 0;
-    this.onProgress(0);
+    this.currentOffset = 0;
+    this.onProgress(0, 0);
   }
 
   public handleChunk(chunkBase64: string, _offset: number) {
     if (!this.currentMetadata) return;
 
+    // Phase 11: Chunk Ordering & Integrity (basic offset handling)
+    // Note: In a fully robust TCP-like system, we would buffer out-of-order chunks.
+    // WebRTC DataChannels in 'reliable' mode guarantee order, so we append directly.
     const buffer = this.base64ToArrayBuffer(chunkBase64);
     this.fileBuffer.push(buffer);
     this.receivedSize += buffer.byteLength;
-    this.onProgress((this.receivedSize / this.currentMetadata.size) * 100);
+    this.currentOffset = this.receivedSize;
+
+    this.onProgress((this.receivedSize / this.currentMetadata.size) * 100, 0);
   }
 
   public handleComplete(fileId: string) {
     if (!this.currentMetadata || this.currentMetadata.id !== fileId) return;
+
+    // Phase 11: Integrity Check
+    if (this.receivedSize !== this.currentMetadata.size) {
+        console.error(`Integrity Error: Received ${this.receivedSize} bytes, expected ${this.currentMetadata.size}`);
+        // Handle error/retry in real UI
+        return;
+    }
 
     const blob = new Blob(this.fileBuffer, { type: this.currentMetadata.type });
     this.onFileComplete(blob, this.currentMetadata);
@@ -119,14 +200,27 @@ export class FileTransferManager {
     this.receivedSize = 0;
   }
 
+  // --- Transfer Controls (Phase 11: Resume/Pause/Cancel) ---
   public pause() {
     this.isPaused = true;
+    this.currentPolicy.strategy = 'PAUSED';
+    this.onAdaptivePolicyChanged(this.currentPolicy);
   }
 
-  public resume(_dataChannel: RTCDataChannel, _sendSecurePayload: (p: any) => Promise<void>) {
+  public resume() {
     this.isPaused = false;
-    // Real implementation would resume from last offset.
-    // This requires the receiver to send an ack of bytes received.
+    this.currentPolicy.strategy = 'OPTIMIZING';
+    this.onAdaptivePolicyChanged(this.currentPolicy);
+  }
+
+  public cancel() {
+    this.isCancelled = true;
+    this.cleanup();
+  }
+
+  private cleanup() {
+    this.networkMonitor.stop();
+    this.mediaMonitor.stop();
   }
 
   // --- Utils ---
@@ -148,3 +242,4 @@ export class FileTransferManager {
     return bytes.buffer;
   }
 }
+
