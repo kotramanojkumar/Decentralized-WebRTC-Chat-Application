@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -11,7 +11,6 @@ import RoomPage from './pages/RoomPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ResearchPage from './pages/ResearchPage';
-import AIAssistantOverlay from './components/AIAssistantOverlay';
 
 function App() {
   useEffect(() => {
@@ -40,9 +39,9 @@ function App() {
         <Route path="/research" element={<ResearchPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      <AIAssistantOverlay />
-    </BrowserRouter>
+          </BrowserRouter>
   )
 }
 
 export default App
+

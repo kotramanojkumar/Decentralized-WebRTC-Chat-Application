@@ -4,7 +4,6 @@ import { io, Socket } from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
 import { WebRTCManager } from '../webrtc/WebRTCManager';
 import { FileTransferManager } from '../file-transfer/FileTransferManager';
-import { aiService } from '../ai/AIService';
 import VideoPlayer from '../components/VideoPlayer';
 
 interface ChatMessage {
@@ -165,12 +164,10 @@ export default function RoomPage() {
       // console.log("Adaptive policy changed:", _policy);
     };
 
-    fileTransferRef.current.onNetworkMetrics = (metrics) => {
-      aiService.setContext('networkMetrics', metrics);
+    fileTransferRef.current.onNetworkMetrics = () => {
     };
 
-    fileTransferRef.current.onMediaMetrics = (metrics) => {
-      aiService.setContext('mediaMetrics', metrics);
+    fileTransferRef.current.onMediaMetrics = () => {
     };
 
     fileTransferRef.current.onFileComplete = (blob, metadata) => {
@@ -375,44 +372,6 @@ export default function RoomPage() {
       }
     ]);
     setInputMsg('');
-  };
-
-  const [aiSummary, setAiSummary] = useState<string>('');
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
-
-  const handleSummarize = async () => {
-    if (!securityEngineRef.current || messages.length === 0) return;
-    setIsSummarizing(true);
-    try {
-      const fullText = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-      const summary = await securityEngineRef.current.askAISummarize(fullText);
-      setAiSummary("Ã¢Å“Â¨ Local AI Summary\n\n" + summary + "\n\nÃ°Å¸â€â€™ Processed locally on this device");
-    } catch (e) {
-      console.error(e);
-      setAiSummary("Failed to generate summary.");
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
-
-  const handleExtractActions = async () => {
-    if (!securityEngineRef.current || messages.length === 0) return;
-    setIsSummarizing(true);
-    try {
-      const fullText = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-      // Hacky prompt override since SecurityEngine just summarizes currently
-      const originalPrompt = securityEngineRef.current.summarizerString;
-      securityEngineRef.current.summarizerString = `Extract bullet point action items, decisions, and deadlines from the following conversation:\n\n\${text}`;
-      const summary = await securityEngineRef.current.askAISummarize(fullText);
-      securityEngineRef.current.summarizerString = originalPrompt;
-      setAiSummary("Ã¢Å“Â¨ Local AI Action Items\n\n" + summary + "\n\nÃ°Å¸â€â€™ Processed locally on this device");
-    } catch (e) {
-      console.error(e);
-      setAiSummary("Failed to generate action items.");
-    } finally {
-      setIsSummarizing(false);
-    }
   };
 
   // WebSocket connection & Backend Validation
@@ -818,19 +777,6 @@ export default function RoomPage() {
             })}
           </div>
 
-          {aiSummary && (
-            <div className={`mx-4 mb-2 p-3 text-sm border rounded-lg shadow-sm ${preferences.darkMode ? 'bg-[#202c33] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-semibold text-blue-500 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  AI Summary
-                </span>
-                <button onClick={() => setAiSummary('')} className="text-gray-400 hover:text-gray-600">Ã¢Å“â€¢</button>
-              </div>
-              <p className="opacity-90">{aiSummary}</p>
-            </div>
-          )}
-
           <div className={`p-3 flex flex-col gap-2 ${preferences.darkMode ? 'bg-[#202c33]' : 'bg-[#f0f2f5]'}`}>
             
             {fileProgress > 0 && (
@@ -855,25 +801,6 @@ export default function RoomPage() {
             )}
 
             <form onSubmit={handleSend} className="flex items-center gap-2">
-              <div className="relative">
-                <button 
-                  type="button"
-                  onClick={() => setShowAiMenu(!showAiMenu)}
-                  disabled={isSummarizing || messages.length === 0}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-1 border ${preferences.darkMode ? 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-gray-600' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'}`}
-                >
-                  {isSummarizing ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  ) : 'Ã¢Å“Â¨ AI'}
-                </button>
-                
-                {showAiMenu && (
-                  <div className={`absolute bottom-full mb-2 left-0 p-1 rounded-lg shadow-xl border w-48 z-50 ${preferences.darkMode ? 'bg-[#202c33] border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <button type="button" onClick={() => { handleSummarize(); setShowAiMenu(false); }} className={`w-full text-left px-3 py-2 rounded text-sm transition ${preferences.darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>Summarize conversation</button>
-                    <button type="button" onClick={() => { handleExtractActions(); setShowAiMenu(false); }} className={`w-full text-left px-3 py-2 rounded text-sm transition ${preferences.darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>Extract action items</button>
-                  </div>
-                )}
-              </div>
 
               <div className="relative">
                 <button 
