@@ -1,8 +1,6 @@
-﻿import { useState, useRef } from 'react';
-import type { MouseEvent } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_URL } from '../config';
-import NetworkBackground from '../components/NetworkBackground';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -10,28 +8,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  // 3D Card Tilt Effect
-  const cardRef = useRef<HTMLDivElement>(null);
-  
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const card = cardRef.current;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -5;
-    const rotateY = ((x - centerX) / centerX) * 5;
-    
-    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-  };
-
-  const handleMouseLeave = () => {
-    if (!cardRef.current) return;
-    cardRef.current.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +31,6 @@ export default function RegisterPage() {
       localStorage.setItem('displayName', data.user.displayName);
       localStorage.setItem('role', data.user.role);
       
-      // Navigate to profile setup after registration
       navigate('/profile-setup');
     } catch (err: any) {
       setError(err.message);
@@ -65,87 +40,95 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      <NetworkBackground />
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 sm:p-8 font-sans">
       
-      {/* 3D Container Wrapper */}
-      <div className="z-10 w-full max-w-md relative" style={{ perspective: '1000px' }}>
+      {/* Main Split Container */}
+      <div className="max-w-[1000px] w-full bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] flex flex-col md:flex-row overflow-hidden min-h-[650px]">
         
-        {/* Glassmorphic Card with Tilt */}
-        <div 
-          ref={cardRef}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          style={{ transition: 'transform 0.1s ease-out' }}
-          className="relative bg-white/5 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
-        >
-          {/* Corner Decals (like in the reference) */}
-          <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-indigo-500/50 rounded-tl-3xl opacity-50 pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-indigo-500/50 rounded-br-3xl opacity-50 pointer-events-none"></div>
-          <div className="absolute top-0 left-0 w-8 h-8 bg-white/10 backdrop-blur-md rounded-br-2xl clip-polygon pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-8 h-8 bg-white/10 backdrop-blur-md rounded-tl-2xl clip-polygon pointer-events-none"></div>
-
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white">
-              Create <span className="text-indigo-400">Account</span>
-            </h2>
-            <p className="text-gray-400 mt-2 text-sm">Join us today to access your secure workspace</p>
-          </div>
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && <div className="text-red-400 text-sm bg-red-900/30 border border-red-500/30 p-3 rounded-xl">{error}</div>}
+        {/* Left Panel: Nova AI Bot (Black) */}
+        <div className="hidden md:flex md:w-1/2 bg-black flex-col items-center justify-center relative p-8">
+          <style>
+            {`
+              @keyframes floatY {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-15px); }
+              }
+              .animate-float { animation: floatY 4s ease-in-out infinite; }
+            `}
+          </style>
+          
+          <div className="flex flex-col items-center">
+            {/* The Robot Graphic */}
+            <div className="relative animate-float z-10">
+              <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Antenna */}
+                <path d="M70 70 L60 50 M60 50 L75 40" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="75" cy="40" r="6" fill="white" />
+                
+                {/* Ears */}
+                <rect x="30" y="90" width="15" height="30" rx="4" fill="#e5e7eb" />
+                <rect x="155" y="90" width="15" height="30" rx="4" fill="#e5e7eb" />
+                
+                {/* Main Head Shape (Octagon-ish) */}
+                <path d="M60 70 L140 70 L170 95 L170 125 L140 150 L60 150 L30 125 L30 95 Z" fill="#f3f4f6" stroke="white" strokeWidth="4" strokeLinejoin="round"/>
+                
+                {/* Screen / Visor */}
+                <path d="M65 85 L135 85 L155 102 L155 118 L135 135 L65 135 L45 118 L45 102 Z" fill="#111827" />
+                
+                {/* Left Eye (X) */}
+                <path d="M75 100 L95 120 M95 100 L75 120" stroke="white" strokeWidth="6" strokeLinecap="round"/>
+                
+                {/* Right Eye (Square) */}
+                <rect x="115" y="105" width="12" height="12" fill="white" transform="rotate(15 115 105)" />
+              </svg>
+            </div>
             
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-400 ml-1">Full Name</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
-                    placeholder="Alex Johnson"
-                    value={formData.displayName}
-                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                    required
-                  />
-                </div>
+            {/* Soft Shadow below robot */}
+            <div className="w-40 h-6 bg-white/10 rounded-[100%] mt-8 blur-xl"></div>
+          </div>
+        </div>
+
+        {/* Right Panel: Clean White Form */}
+        <div className="w-full md:w-1/2 p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-white relative">
+          
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-2">Create Account</h2>
+          <p className="text-gray-500 text-center text-sm mb-10">Sign up to get started</p>
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-xl">{error}</div>}
+            
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Full Name</label>
+                <input
+                  type="text"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-shadow text-sm shadow-inner"
+                  placeholder="Alex Johnson"
+                  value={formData.displayName}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  required
+                />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-400 ml-1">Email Address</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="email"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
-                    placeholder="name@domain.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-shadow text-sm shadow-inner"
+                  placeholder="name@domain.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-400 ml-1">Password</label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Password</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm tracking-widest"
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-10 py-3.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-shadow text-sm shadow-inner tracking-widest"
+                    placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
@@ -153,47 +136,61 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-400 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 015.058-5.058m1.288-1.288A10.05 10.05 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.05 10.05 0 01-1.288 3.288M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
                       </svg>
                     )}
                   </button>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2 mt-2">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-white/5 text-indigo-400 focus:ring-indigo-500 focus:ring-offset-gray-900" required />
-                <label className="text-xs text-gray-400">I agree to the Terms & Privacy Policy</label>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all disabled:opacity-50 mt-8"
+              className="w-full py-3.5 rounded-full text-white font-medium bg-black hover:bg-gray-800 transition-all disabled:opacity-50 mt-8 shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Generating Keypair...' : 'Create Account'}
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              {isLoading ? 'Processing...' : 'Sign Up'}
             </button>
           </form>
 
-          <div className="mt-8 text-center text-xs text-gray-500 flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-1 mt-2">
-              <span>Already have an account?</span>
-              <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">Sign In</Link>
+          <div className="relative mt-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
             </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-4 bg-white text-gray-400">Or</span>
+            </div>
+          </div>
+
+          {/* Mock Social Logins */}
+          <div className="grid grid-cols-3 gap-3 mt-6">
+            <button className="flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+              <span className="text-xs font-medium text-gray-600">Google</span>
+            </button>
+            <button className="flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+              <span className="text-xs font-medium text-gray-600">Apple</span>
+            </button>
+            <button className="flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+              <span className="text-xs font-medium text-gray-600">X</span>
+            </button>
+          </div>
+
+          <div className="mt-8 text-center text-xs text-gray-500">
+            <span>Already have an account? </span>
+            <Link to="/login" className="text-black font-semibold hover:underline">Log In</Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-
