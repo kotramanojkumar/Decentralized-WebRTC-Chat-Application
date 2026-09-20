@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-200 overflow-hidden relative">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50  transition-colors duration-200 overflow-hidden relative">
       
       {/* Background Decorators */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
@@ -35,7 +35,7 @@ export default function LandingPage() {
           </Link>
           <Link
             to="/login"
-            className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 font-semibold rounded-xl hover:shadow-md hover:scale-105 transition-all duration-200 text-lg flex items-center justify-center"
+            className="px-8 py-4 bg-white bg-white/5 backdrop-blur-xl border border-white/10 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 font-semibold rounded-xl hover:shadow-md hover:scale-105 transition-all duration-200 text-lg flex items-center justify-center"
           >
             Log in
           </Link>
@@ -43,13 +43,13 @@ export default function LandingPage() {
 
         {/* Feature badges */}
         <div className="mt-20 flex flex-wrap justify-center gap-4 text-sm font-medium">
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
+          <span className="px-4 py-2 bg-white bg-white/5 backdrop-blur-xl border border-white/10 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
             🔒 End-to-End Encrypted
           </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
+          <span className="px-4 py-2 bg-white bg-white/5 backdrop-blur-xl border border-white/10 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
             🤖 Local AI Web Worker
           </span>
-          <span className="px-4 py-2 bg-white dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
+          <span className="px-4 py-2 bg-white bg-white/5 backdrop-blur-xl border border-white/10 dark:text-gray-300 dark:border-gray-700 rounded-full border shadow-sm flex items-center gap-2">
             📡 Peer-to-Peer WebRTC
           </span>
         </div>

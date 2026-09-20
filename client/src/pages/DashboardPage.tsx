@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
-import NetworkBackground from '../components/NetworkBackground';
+// import NetworkBackground from '../components/NetworkBackground';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -314,7 +314,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-[#0a0f1a] dark:via-[#0d1425] dark:to-[#0f1730] p-8 transition-colors duration-200 relative overflow-hidden">
       
       {/* 3D Animated Network Mesh Decorators */}
-      <NetworkBackground />
+      
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
         <div className="absolute -top-[15%] -left-[10%] w-[45%] h-[45%] rounded-full bg-blue-400/5 dark:bg-blue-600/5 blur-3xl"></div>
         <div className="absolute top-[50%] -right-[15%] w-[40%] h-[50%] rounded-full bg-indigo-400/5 dark:bg-indigo-600/5 blur-3xl"></div>
@@ -491,7 +491,7 @@ export default function DashboardPage() {
             </h2>
             <div className="space-y-3">
               {myRooms.map(room => (
-                <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg border border-gray-100 dark:border-gray-700">
                   <div className="mb-3 sm:mb-0">
                     <div className="font-mono font-medium text-gray-800 dark:text-gray-200">
                       Code: {room.secureInviteCode}
@@ -578,7 +578,7 @@ export default function DashboardPage() {
             
             <div className="flex-1 overflow-y-auto space-y-3 pr-2">
               {tasks.map(task => (
-                <div key={task.id} className={`p-3 rounded-lg border ${task.done ? 'bg-gray-50 border-gray-100 dark:bg-gray-800/50 dark:border-gray-700' : 'bg-white border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-600'} transition flex gap-3 items-start`}>
+                <div key={task.id} className={`p-3 rounded-lg border ${task.done ? 'bg-gray-50 border-gray-100 bg-white/5 backdrop-blur-xl border border-white/10/50 dark:border-gray-700' : 'bg-white border-gray-200 shadow-sm bg-white/5 backdrop-blur-xl border border-white/10 dark:border-gray-600'} transition flex gap-3 items-start`}>
                   <input 
                     type="checkbox" 
                     checked={task.done} 

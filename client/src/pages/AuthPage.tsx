@@ -98,7 +98,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: 'log
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 font-sans relative overflow-hidden bg-[#090b16] text-[#f4f3ff]">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 font-sans relative overflow-hidden bg-transparent text-[#f4f3ff]">
       
       {/* Background Orbs & 3D Environment (Inspired by Orbit) */}
       <style>
