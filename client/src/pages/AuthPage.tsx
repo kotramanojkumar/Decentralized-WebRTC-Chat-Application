@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
@@ -134,7 +134,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: 'log
         {/* Branding */}
         <div className="flex items-center justify-center gap-3 mb-6 font-bold text-2xl tracking-tight">
           <div className="w-7 h-7 border-[6px] border-[#b7a2ff] rounded-full shadow-[5px_-3px_0_-2px_#75dfcb] transform -rotate-[25deg]"></div>
-          Nova WebRTC
+          Decentralized WebRTC
         </div>
 
         {/* Switcher Toggle */}
@@ -237,7 +237,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: 'log
                     className="w-full h-[49px] flex items-center justify-between px-5 rounded-xl text-[#1b1431] font-bold text-sm bg-gradient-to-br from-[#c4b5fd] to-[#a992f5] shadow-[0_6px_0_#69549a,0_12px_25px_rgba(167,139,250,0.2)] hover:-translate-y-0.5 active:translate-y-1 active:shadow-[0_2px_0_#69549a] transition-all disabled:opacity-50"
                   >
                     {isLoading ? 'Decrypting...' : (requires2FA ? 'Verify Identity' : 'Log in to Network')}
-                    <span className="text-lg">↗</span>
+                    <span className="text-lg">â†—</span>
                   </button>
 
                   {!requires2FA && (
@@ -320,7 +320,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: 'log
                     className="w-full h-[49px] flex items-center justify-between px-5 rounded-xl text-[#1b1431] font-bold text-sm bg-gradient-to-br from-[#c4b5fd] to-[#a992f5] shadow-[0_6px_0_#69549a,0_12px_25px_rgba(167,139,250,0.2)] hover:-translate-y-0.5 active:translate-y-1 active:shadow-[0_2px_0_#69549a] transition-all disabled:opacity-50"
                   >
                     {isLoading ? 'Generating Keypair...' : 'Create Account'}
-                    <span className="text-lg">↗</span>
+                    <span className="text-lg">â†—</span>
                   </button>
 
                   <p className="text-center text-[#a6aac5] text-xs mt-6">
@@ -341,3 +341,4 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: 'log
     </div>
   );
 }
+
