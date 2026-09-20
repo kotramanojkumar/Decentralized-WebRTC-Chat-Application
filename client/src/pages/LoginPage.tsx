@@ -2,7 +2,7 @@
 import type { MouseEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_URL } from '../config';
-import Fluid3DBackground from '../components/Fluid3DBackground';
+import NetworkBackground from '../components/NetworkBackground';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -86,7 +86,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#050505] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      <Fluid3DBackground />
+      <NetworkBackground />
       
       {/* 3D Container Wrapper */}
       <div className="z-10 w-full max-w-md relative" style={{ perspective: '1000px' }}>
@@ -100,14 +100,14 @@ export default function LoginPage() {
           className="relative bg-white/5 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
         >
           {/* Corner Decals (like in the reference) */}
-          <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-yellow-400/50 rounded-tl-3xl opacity-50 pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-yellow-400/50 rounded-br-3xl opacity-50 pointer-events-none"></div>
+          <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-indigo-500/50 rounded-tl-3xl opacity-50 pointer-events-none"></div>
+          <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-indigo-500/50 rounded-br-3xl opacity-50 pointer-events-none"></div>
           <div className="absolute top-0 left-0 w-8 h-8 bg-white/10 backdrop-blur-md rounded-br-2xl clip-polygon pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-8 h-8 bg-white/10 backdrop-blur-md rounded-tl-2xl clip-polygon pointer-events-none"></div>
 
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-white">
-              Sign <span className="text-yellow-400">In</span>
+              Sign <span className="text-indigo-400">In</span>
             </h2>
             <p className="text-gray-400 mt-2 text-sm">Access your secure WebRTC workspace</p>
           </div>
@@ -128,7 +128,7 @@ export default function LoginPage() {
                       </div>
                       <input
                         type="text"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all text-sm"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm"
                         placeholder="name@domain.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -147,7 +147,7 @@ export default function LoginPage() {
                       </div>
                       <input
                         type={showPassword ? "text" : "password"}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all text-sm tracking-widest"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm tracking-widest"
                         placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -156,7 +156,7 @@ export default function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-yellow-400 transition-colors"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-400 transition-colors"
                       >
                         {showPassword ? (
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -176,7 +176,7 @@ export default function LoginPage() {
                   <label className="text-xs font-medium text-gray-400 ml-1">Secure OTP</label>
                   <input
                     type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all text-center text-2xl tracking-[0.5em] font-bold"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-center text-2xl tracking-[0.5em] font-bold"
                     placeholder="000000"
                     maxLength={6}
                     value={formData.otp}
@@ -190,7 +190,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-black font-bold bg-yellow-400 hover:bg-yellow-500 hover:shadow-[0_0_20px_rgba(250,204,21,0.4)] transition-all disabled:opacity-50 mt-8"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all disabled:opacity-50 mt-8"
             >
               {isLoading ? 'Decrypting...' : (requires2FA ? 'Verify OTP' : 'Sign In')}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
@@ -199,11 +199,11 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center text-xs text-gray-500 flex flex-col gap-2">
             {!requires2FA && (
-              <button className="hover:text-yellow-400 transition-colors">Forgot your password?</button>
+              <button className="hover:text-indigo-400 transition-colors">Forgot your password?</button>
             )}
             <div className="flex items-center justify-center gap-1 mt-2">
               <span>Already have an account?</span>
-              <Link to="/register" className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors">Sign Up</Link>
+              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">Sign Up</Link>
             </div>
           </div>
         </div>
@@ -211,4 +211,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 
