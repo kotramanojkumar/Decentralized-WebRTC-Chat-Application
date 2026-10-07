@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ParticleField from './components/ParticleField';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -13,30 +14,31 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function App() {
   useEffect(() => {
-    // Global Dark Mode Enforcer
-    const isDark = localStorage.getItem('darkMode') === 'true';
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Force dark mode globally
+    document.documentElement.classList.add('dark');
   }, []);
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/profile-setup" element={<ProfileSetupPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/contacts" element={<ContactsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/room/:roomId" element={<RoomPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/admin" element={<AdminDashboardPage />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      {/* Global animated particle background */}
+      <ParticleField />
+
+      {/* App content layer */}
+      <div className="relative z-10 min-h-screen">
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/profile-setup" element={<ProfileSetupPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/room/:roomId" element={<RoomPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
     </BrowserRouter>
   )
 }

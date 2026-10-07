@@ -231,25 +231,25 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className={`min-h-screen ${preferences.darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'} pb-12`}>
-      <header className={`px-6 py-4 border-b ${preferences.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} sticky top-0 z-10 flex items-center justify-between`}>
+    <div className="min-h-screen text-white pb-12 relative overflow-x-hidden">
+      <header className="px-4 sm:px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0 z-20 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className={`p-2 rounded-full ${preferences.darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+          <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-white/10 transition text-white/80">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </button>
           <h1 className="text-xl font-bold">Settings</h1>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto mt-8 px-4 flex flex-col md:flex-row gap-8">
+      <div className="max-w-4xl mx-auto mt-6 sm:mt-8 px-4 flex flex-col md:flex-row gap-6 md:gap-8">
         
         {/* Sidebar Nav */}
-        <div className="md:w-64 flex-shrink-0 space-y-1">
+        <div className="md:w-64 flex-shrink-0 flex md:flex-col overflow-x-auto gap-2 md:gap-0 md:space-y-1 pb-2 md:pb-0 scrollbar-none">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition ${activeTab === tab.id ? 'bg-blue-600 text-white' : (preferences.darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-200 text-gray-700')}`}
+              className={`whitespace-nowrap md:whitespace-normal md:w-full text-left px-4 py-2.5 sm:py-3 rounded-xl font-medium transition text-sm ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white/10 text-white/60 hover:text-white'}`}
             >
               {tab.label}
             </button>

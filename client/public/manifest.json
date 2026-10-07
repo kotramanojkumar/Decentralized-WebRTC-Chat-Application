@@ -1,0 +1,17 @@
+{
+  "short_name": "P2PConnect",
+  "name": "P2PConnect — Decentralized Real-Time Chat",
+  "description": "Secure, peer-to-peer WebRTC chat with end-to-end encryption",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

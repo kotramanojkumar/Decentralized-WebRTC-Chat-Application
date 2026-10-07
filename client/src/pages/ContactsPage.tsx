@@ -173,27 +173,21 @@ export default function ContactsPage() {
   const incomingCount = receivedRequests.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-[#0a0f1a] dark:via-[#0d1425] dark:to-[#0f1730] relative overflow-hidden">
+    <div className="min-h-screen relative overflow-x-hidden text-white">
       
-      {/* Background blobs */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        <div className="absolute -top-[15%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-400/10 dark:bg-blue-600/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[35%] h-[40%] rounded-full bg-indigo-400/10 dark:bg-indigo-600/10 blur-3xl" />
-      </div>
-
-      <div className="max-w-5xl mx-auto px-6 py-8 relative z-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl rounded-2xl px-8 py-5 border border-white/40 dark:border-white/10 shadow-lg">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 bg-white/5 backdrop-blur-xl rounded-2xl p-5 sm:px-8 sm:py-5 border border-white/10 shadow-2xl">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/dashboard')} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition text-gray-600 dark:text-gray-300">
+            <button onClick={() => navigate('/dashboard')} className="p-2 rounded-xl hover:bg-white/10 transition text-white/80">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 dark:from-white dark:to-blue-200 bg-clip-text text-transparent">Contacts</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Discover users &amp; start secure P2P conversations</p>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Contacts</h1>
+              <p className="text-sm text-white/50">Discover users &amp; start secure P2P conversations</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -202,7 +196,7 @@ export default function ContactsPage() {
             )}
             <button
               onClick={() => { setTab('search'); setSearchQuery(''); }}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition"
             >
               Find Users
             </button>
@@ -210,7 +204,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white/60 dark:bg-white/5 backdrop-blur-lg rounded-xl p-1 border border-white/40 dark:border-white/10 w-fit">
+        <div className="flex flex-wrap gap-1 mb-6 bg-white/5 backdrop-blur-lg rounded-xl p-1 border border-white/10 w-full sm:w-fit">
           {([
             { key: 'contacts', label: 'My Contacts', icon: '👥' },
             { key: 'search', label: 'Find Users', icon: '🔍' },

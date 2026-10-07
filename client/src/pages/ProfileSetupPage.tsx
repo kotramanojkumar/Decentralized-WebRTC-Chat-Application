@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import { API_URL } from '../config';
 
 export default function ProfileSetupPage() {
@@ -42,39 +41,30 @@ export default function ProfileSetupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200 relative overflow-hidden">
-      
-      {/* Background Decorators */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[30%] left-[20%] w-[40%] h-[40%] rounded-full bg-blue-400/20 dark:bg-blue-600/20 blur-3xl filter"></div>
-      </div>
-
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-10">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] py-12 px-4 sm:px-6 lg:px-8 text-white relative">
+      <div className="max-w-md w-full space-y-8 bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-2xl z-10">
         <div>
-          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full shadow-lg flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-6 border border-white/10">
              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
              </svg>
           </div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-center text-2xl font-bold text-white">
             Complete your profile
           </h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">Set up your identity before joining the network.</p>
+          <p className="text-center text-white/50 mt-2 text-sm">Set up your identity before joining the network.</p>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center font-medium bg-red-100 p-2 rounded-lg">{error}</div>}
-          
+          {error && <div className="text-red-400 text-sm text-center font-medium bg-red-500/10 border border-red-500/20 p-3 rounded-xl">{error}</div>}
 
-
-          <div className="rounded-md space-y-4">
-
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unique Username</label>
+              <label className="text-sm font-medium text-white/70 block mb-1">Unique Username</label>
               <input
                 type="text"
                 required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 transition"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition sm:text-sm"
                 placeholder="@username"
                 value={formData.username}
                 onChange={(e) => setFormData({...formData, username: e.target.value})}
@@ -82,10 +72,10 @@ export default function ProfileSetupPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">About / Status</label>
+              <label className="text-sm font-medium text-white/70 block mb-1">About / Status</label>
               <input
                 type="text"
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 transition"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition sm:text-sm"
                 placeholder="Available"
                 value={formData.about}
                 onChange={e => setFormData({ ...formData, about: e.target.value })}
@@ -97,7 +87,7 @@ export default function ProfileSetupPage() {
             <button
               type="submit"
               disabled={isLoading || !formData.username}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-50"
+              className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 cursor-pointer shadow-lg"
             >
               {isLoading ? 'Saving Profile...' : 'Continue'}
             </button>

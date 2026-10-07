@@ -93,11 +93,11 @@ export default function AdminDashboardPage() {
   if (!isAdmin) return <div className="min-h-screen bg-gray-900 text-red-500 flex flex-col items-center justify-center"><h1 className="text-3xl font-bold mb-4">Access Denied</h1><p>You do not have permission to view this page, or the server is still booting up.</p><button onClick={() => navigate('/dashboard')} className="mt-4 text-blue-400">Go back to Dashboard</button></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-8">
+    <div className="min-h-screen text-white p-4 sm:p-6 md:p-8 relative overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <button onClick={() => navigate('/dashboard')} className="text-blue-500 hover:underline">
+        <div className="flex justify-between items-center mb-8 bg-white/5 backdrop-blur-xl rounded-2xl p-4 sm:px-6 sm:py-4 border border-white/10 shadow-lg">
+          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Admin Dashboard</h1>
+          <button onClick={() => navigate('/dashboard')} className="text-sm font-medium text-blue-400 hover:text-blue-300">
             &larr; Back to App
           </button>
         </div>

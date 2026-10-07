@@ -13,7 +13,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
     try {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -21,11 +20,9 @@ export default function RegisterPage() {
         body: JSON.stringify(formData)
       });
       const data = await res.json();
-      
       if (!res.ok) {
         throw new Error(data.error || 'Failed to register');
       }
-
       localStorage.setItem('token', data.token);
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('email', formData.email);
@@ -39,70 +36,59 @@ export default function RegisterPage() {
     }
   };
 
-
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200 relative overflow-hidden">
-      
-      {/* Background Decorators */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[60%] rounded-full bg-purple-400/20 dark:bg-purple-600/20 blur-3xl filter"></div>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+        <h1 className="text-2xl font-bold text-white text-center">Create your account</h1>
+        <p className="text-sm text-white/50 text-center mt-2">Join the decentralized network</p>
 
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-10">
-        <div>
-          <div className="w-16 h-16 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-6 transform -rotate-3">
-             <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-          </div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Create an account
-          </h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">Join the decentralized network today.</p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl text-center">
+              {error}
+            </div>
+          )}
 
-
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/30 dark:text-red-300 p-2 rounded">{error}</div>}
-          <div className="rounded-md space-y-4">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">Display Name</label>
               <input
                 type="text"
                 required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm dark:bg-gray-700 transition"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                 placeholder="Alice"
                 value={formData.displayName}
-                onChange={e => setFormData({ ...formData, displayName: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               />
             </div>
+
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email address</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">Email</label>
               <input
                 type="email"
                 required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm dark:bg-gray-700 transition"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                 placeholder="alice@example.com"
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
+
             <div className="relative">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">Password</label>
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm dark:bg-gray-700 transition"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                 placeholder="••••••••"
                 value={formData.password}
-                onChange={e => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="absolute right-3 top-9 text-white/40 hover:text-white/70"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -122,14 +108,16 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all disabled:opacity-50"
+              className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all disabled:opacity-50"
             >
-              {isLoading ? 'Generating Identity...' : 'Sign Up'}
+              {isLoading ? 'Creating account...' : 'Create account'}
             </button>
           </div>
-          <div className="text-center text-sm mt-4">
-            <Link to="/login" className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-500 transition">
-              Already have an account? Sign in
+
+          <div className="text-center text-sm">
+            <span className="text-white/50">Already have an account? </span>
+            <Link to="/login" className="text-violet-400 hover:text-violet-300 text-sm">
+              Sign in
             </Link>
           </div>
         </form>
@@ -137,4 +125,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
-import NetworkBackground from '../components/NetworkBackground';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -311,42 +310,35 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-[#0a0f1a] dark:via-[#0d1425] dark:to-[#0f1730] p-8 transition-colors duration-200 relative overflow-hidden">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 text-white relative overflow-x-hidden">
       
-      {/* 3D Animated Network Mesh Decorators */}
-      <NetworkBackground />
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute -top-[15%] -left-[10%] w-[45%] h-[45%] rounded-full bg-blue-400/5 dark:bg-blue-600/5 blur-3xl"></div>
-        <div className="absolute top-[50%] -right-[15%] w-[40%] h-[50%] rounded-full bg-indigo-400/5 dark:bg-indigo-600/5 blur-3xl"></div>
-      </div>
-
       <div className="max-w-6xl mx-auto relative z-10">
-        <header className="flex justify-between items-center mb-10 bg-white/60 dark:bg-white/5 backdrop-blur-xl rounded-2xl px-8 py-5 border border-white/40 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/20">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-white/5 backdrop-blur-xl rounded-2xl p-5 sm:px-8 sm:py-5 border border-white/10 shadow-2xl">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-800 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white via-blue-200 to-indigo-200 bg-clip-text text-transparent mb-1">
               Welcome, {localStorage.getItem('displayName') || 'User'}
             </h1>
-            <div className="text-gray-500 dark:text-gray-400 font-mono text-sm">
+            <div className="text-white/50 font-mono text-xs sm:text-sm">
               {time.toLocaleDateString()} | {time.toLocaleTimeString()}
             </div>
           </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition" onClick={() => {
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30 transition" onClick={() => {
               const url = window.location.origin;
               navigator.clipboard.writeText(`Join me on Decentralized Chat!\n\nSign up here: ${url}`);
               alert("Referral link copied to clipboard!");
             }}>Invite Friend</button>
             {localStorage.getItem('email') === 'kmk.kmk0789@gmail.com' && (
-              <button className="px-4 py-2 rounded-lg text-sm font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition border border-emerald-200 dark:border-emerald-800/50" onClick={() => navigate('/admin')}>
-                <span className="flex items-center gap-2">
+              <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 transition border border-emerald-500/30" onClick={() => navigate('/admin')}>
+                <span className="flex items-center gap-1.5">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                   Admin
                 </span>
               </button>
             )}
-            <button className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10 transition" onClick={() => navigate('/contacts')}>Contacts</button>
-            <button className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10 transition" onClick={() => navigate('/settings')}>Settings</button>
-            <button className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition" onClick={() => navigate('/')}>Logout</button>
+            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-white/80 hover:bg-white/10 border border-white/10 transition" onClick={() => navigate('/contacts')}>Contacts</button>
+            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-white/80 hover:bg-white/10 border border-white/10 transition" onClick={() => navigate('/settings')}>Settings</button>
+            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition" onClick={() => navigate('/')}>Logout</button>
           </div>
         </header>
 

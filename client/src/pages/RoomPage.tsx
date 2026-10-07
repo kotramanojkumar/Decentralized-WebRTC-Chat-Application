@@ -612,7 +612,7 @@ export default function RoomPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden flex relative">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row relative">
         
         {showNotes && (
           <div className={`absolute top-0 right-0 z-50 w-80 m-4 p-4 rounded-xl shadow-2xl border flex flex-col ${preferences.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-amber-50 border-amber-200'}`}>
@@ -633,13 +633,13 @@ export default function RoomPage() {
         )}
 
         {(isVideoActive || isVoiceActive || isScreenSharing || Object.keys(remoteStreams).length > 0) && (
-          <div className="flex-[2.5] bg-[#111b21] p-8 flex flex-col items-center justify-center relative shadow-2xl z-20 overflow-y-auto">
+          <div className="flex-[2.5] bg-[#111b21] p-3 sm:p-6 md:p-8 flex flex-col items-center justify-center relative shadow-2xl z-20 overflow-y-auto max-h-[45vh] md:max-h-none">
             
-            <div className="flex flex-wrap justify-center gap-6 w-full h-full max-w-7xl items-center">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 w-full h-full max-w-7xl items-center">
               
               {/* Local Stream */}
               {(isVideoActive || isVoiceActive) && (
-                <div className="relative flex-1 min-w-[350px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
+                <div className="relative flex-1 min-w-[260px] sm:min-w-[320px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
                   {!cameraStream ? (
                     <div className="flex flex-col items-center animate-pulse">
                       <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(37,99,235,0.6)]">
@@ -672,7 +672,7 @@ export default function RoomPage() {
 
               {/* Screen Share Stream */}
               {isScreenSharing && (
-                <div className="relative flex-1 min-w-[350px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
+                <div className="relative flex-1 min-w-[260px] sm:min-w-[320px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
                   <VideoPlayer stream={screenStream} isLocal={true} />
                   <div className="absolute bottom-4 left-4 bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg shadow backdrop-blur-sm">You (Screen)</div>
                 </div>
@@ -682,7 +682,7 @@ export default function RoomPage() {
               {Object.entries(remoteStreams).map(([peerId, stream]) => {
                 const hasVideo = stream.getVideoTracks().length > 0;
                 return (
-                  <div key={peerId} className="relative flex-1 min-w-[350px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
+                  <div key={peerId} className="relative flex-1 min-w-[260px] sm:min-w-[320px] max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center">
                     
                     {/* Always render the player so audio works! We just hide it visually if no video */}
                     <div className={hasVideo ? 'w-full h-full' : 'hidden'}>
@@ -707,52 +707,52 @@ export default function RoomPage() {
             </div>
             
             {/* Call Controls Overlay */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 items-center bg-[#202c33] bg-opacity-90 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-gray-700">
+            <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-4 items-center bg-[#202c33] bg-opacity-90 px-4 sm:px-6 py-2 sm:py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-gray-700">
                
                {/* Mute Button */}
-               <button onClick={toggleMute} className={`p-3 rounded-full transition transform hover:scale-110 ${isMuted ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title={isMuted ? 'Unmute' : 'Mute'}>
+               <button onClick={toggleMute} className={`p-2.5 sm:p-3 rounded-full transition transform hover:scale-110 ${isMuted ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title={isMuted ? 'Unmute' : 'Mute'}>
                  {isMuted ? (
                    // Muted Mic SVG
-                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                      <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth={2}/>
                    </svg>
                  ) : (
                    // Mic SVG
-                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                    </svg>
                  )}
                </button>
 
                {/* Video Button */}
-               <button onClick={toggleVideo} className={`p-3 rounded-full transition transform hover:scale-110 ${!isVideoActive ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title={isVideoActive ? 'Turn off camera' : 'Turn on camera'}>
+               <button onClick={toggleVideo} className={`p-2.5 sm:p-3 rounded-full transition transform hover:scale-110 ${!isVideoActive ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title={isVideoActive ? 'Turn off camera' : 'Turn on camera'}>
                  {!isVideoActive ? (
-                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                      <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth={2}/>
                    </svg>
                  ) : (
-                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                    </svg>
                  )}
                </button>
 
                {/* Screen Share Button */}
-               <button onClick={toggleScreenShare} className={`p-3 rounded-full transition transform hover:scale-110 ${isScreenSharing ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title="Screen Share">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+               <button onClick={toggleScreenShare} className={`p-2.5 sm:p-3 rounded-full transition transform hover:scale-110 ${isScreenSharing ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`} title="Screen Share">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                </button>
 
                {/* End Call Button */}
-               <button onClick={endCall} className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 ml-4 shadow-lg transition transform hover:scale-110" title="End Call">
-                 <svg className="w-6 h-6 transform rotate-[135deg]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+               <button onClick={endCall} className="bg-red-500 hover:bg-red-600 text-white rounded-full p-3 sm:p-4 ml-2 sm:ml-4 shadow-lg transition transform hover:scale-110" title="End Call">
+                 <svg className="w-5 h-5 sm:w-6 sm:h-6 transform rotate-[135deg]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                </button>
             </div>
           </div>
         )}
 
-        <div className={`flex-1 flex flex-col border-l relative min-w-[300px] ${preferences.darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`flex-1 flex flex-col border-t md:border-t-0 md:border-l relative min-w-0 md:min-w-[320px] ${preferences.darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           
           {securityPolicy && (
             <div className={`p-3 text-center text-xs shadow-sm z-10 border-b cursor-pointer hover:opacity-90 ${securityPolicy.level === 'HIGHLY_CONFIDENTIAL' ? 'bg-red-100 text-red-900 border-red-200' : securityPolicy.level === 'CONFIDENTIAL' ? 'bg-yellow-100 text-yellow-900 border-yellow-200' : 'bg-[#ffeecd] text-gray-700 border-[#eeddbe]'}`} onClick={() => alert(`Security Analysis\n\nClassification: ${securityPolicy.level}\nWhy? Sensitivity score analyzed locally.\n\nApplied Policy:\n✓ Local AI Only\n✓ Ephemeral TTL: ${securityPolicy.maxTTL > 0 ? securityPolicy.maxTTL + 's' : 'Off'}`)}>
