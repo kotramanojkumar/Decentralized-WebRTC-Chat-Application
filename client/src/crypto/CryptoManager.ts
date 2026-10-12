@@ -1,6 +1,7 @@
 export class CryptoManager {
   private keyPair: CryptoKeyPair | null = null;
   private sessionKey: CryptoKey | null = null;
+  private remotePublicKey: string | null = null;
 
   // 1. Generate Ephemeral ECDH Key Pair
   public async generateKeyPair() {
@@ -24,6 +25,7 @@ export class CryptoManager {
   // 3. Derive Session Key from Remote Public Key
   public async deriveSessionKey(remotePublicKeyBase64: string) {
     if (!this.keyPair) throw new Error('Key pair not generated');
+    this.remotePublicKey = remotePublicKeyBase64;
     
     const rawPublicKey = this.base64ToBuffer(remotePublicKeyBase64);
     
@@ -102,6 +104,15 @@ export class CryptoManager {
     return this.sessionKey !== null;
   }
 
+  public getRemotePublicKey(): string | null {
+    return this.remotePublicKey;
+  }
+
+  public async getSafetyNumber(): Promise<string | null> {
+    if (!this.remotePublicKey) return null;
+    return this.generateSafetyNumber(this.remotePublicKey);
+  }
+
   // --- Utility Functions ---
   private bufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
@@ -131,12 +142,12 @@ export class CryptoManager {
     const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(combined));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     
-    let digits = '';
-    for (let i = 0; i < hashArray.length && digits.length < 60; i += 2) {
+    const blocks: string[] = [];
+    for (let i = 0; i < hashArray.length && blocks.length < 12; i += 2) {
       const num = (((hashArray[i] << 8) | (hashArray[i + 1] || 0)) % 100000);
-      digits += num.toString().padStart(5, '0') + ' ';
+      blocks.push(num.toString().padStart(5, '0'));
     }
-    return digits.trim();
+    return blocks.join(' ');
   }
 
   // 6. Cryptographic Hash Chain block generation for Session Audit Ledger

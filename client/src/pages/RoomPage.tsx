@@ -1,19 +1,42 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
-import { WebRTCManager } from '../webrtc/WebRTCManager';
+import { WebRTCManager, type PeerTelemetry } from '../webrtc/WebRTCManager';
 import { FileTransferManager } from '../file-transfer/FileTransferManager';
 import VideoPlayer from '../components/VideoPlayer';
 import NetworkDiagnosticsHUD from '../components/NetworkDiagnosticsHUD';
 import AIMeetingNotesModal from '../components/AIMeetingNotesModal';
 import AudioFrequencyWave from '../components/AudioFrequencyWave';
 import ThemeToggle from '../components/ThemeToggle';
+import NetworkTopology3D, { type PeerNodeData } from '../components/NetworkTopology3D';
+import ErrorBoundary from '../components/ErrorBoundary';
+import P2PTrustMapModal, { type TrustMapPeerData } from '../components/P2PTrustMapModal';
 import { MeetingNotesEngine, type MeetingSummaryResult } from '../ai/MeetingNotesEngine';
 import { PredictiveTextEngine } from '../ai/PredictiveTextEngine';
 import { soundEngine } from '../utils/parrotAudio';
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 import CallRecorderModal from '../components/CallRecorderModal';
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Monitor,
+  PhoneCall,
+  PhoneOff,
+  Radio,
+  Activity,
+  Paperclip,
+  Smile,
+  Send,
+  ShieldCheck,
+  ShieldAlert,
+  Fingerprint,
+  LogOut,
+  Sparkles,
+  FileText,
+} from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -70,12 +93,179 @@ export default function RoomPage() {
   const [meetingSummary, setMeetingSummary] = useState<MeetingSummaryResult | null>(null);
   const [auditChain, setAuditChain] = useState<AuditRecord[]>([]);
 
+  // P2P TrustMap & Safety Fingerprint State
+  const [showTrustMapModal, setShowTrustMapModal] = useState(false);
+  const [selectedTrustMapPeerId, setSelectedTrustMapPeerId] = useState<string | null>(null);
+  const [peerSafetyNumbers, setPeerSafetyNumbers] = useState<Record<string, string>>({});
+  const [peerPublicKeys, setPeerPublicKeys] = useState<Record<string, string>>({});
+  const [verifiedPeers, setVerifiedPeers] = useState<Record<string, boolean>>({});
+  const [keyChangeWarnings, setKeyChangeWarnings] = useState<Record<string, boolean>>({});
+
   // Voice activity tracking for speaker rings
   const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
   const [remoteSpeaking, setRemoteSpeaking] = useState<Record<string, boolean>>({});
 
+  // 3D Mesh Topology & Live WebRTC Telemetry State
+  const [show3DMeshTopology, setShow3DMeshTopology] = useState(false);
+  const [peerTelemetry, setPeerTelemetry] = useState<PeerTelemetry[]>([]);
+
+  // Periodically poll WebRTC telemetry & crypto keys when room or call is active
+  useEffect(() => {
+    if (!webrtcManagerRef.current) return;
+    const fetchTelemetryAndCrypto = async () => {
+      try {
+        const stats = await webrtcManagerRef.current?.getTelemetry();
+        if (stats) setPeerTelemetry(stats);
+
+        const cryptoMap = webrtcManagerRef.current?.getCryptoManagers();
+        if (cryptoMap) {
+          const newSafetyNumbers: Record<string, string> = {};
+          const newPublicKeys: Record<string, string> = {};
+          const newWarnings: Record<string, boolean> = {};
+
+          for (const [pId, crypto] of cryptoMap.entries()) {
+            try {
+              const sn = await crypto.getSafetyNumber();
+              if (sn) newSafetyNumbers[pId] = sn;
+
+              const pubKey = crypto.getRemotePublicKey();
+              if (pubKey) {
+                newPublicKeys[pId] = pubKey;
+                // Detect public key change against stored verified key
+                const storedKey = localStorage.getItem(`peer_key_${pId}`);
+                if (storedKey && storedKey !== pubKey) {
+                  newWarnings[pId] = true;
+                } else if (!storedKey) {
+                  localStorage.setItem(`peer_key_${pId}`, pubKey);
+                }
+              }
+            } catch (_) {}
+          }
+          setPeerSafetyNumbers(newSafetyNumbers);
+          setPeerPublicKeys(newPublicKeys);
+          if (Object.keys(newWarnings).length > 0) {
+            setKeyChangeWarnings((prev) => ({ ...prev, ...newWarnings }));
+          }
+        }
+      } catch (_) {}
+    };
+
+    fetchTelemetryAndCrypto();
+    const interval = setInterval(fetchTelemetryAndCrypto, 2000);
+    return () => clearInterval(interval);
+  }, [peers]);
+
+  // Sync verified peers from localStorage
+  useEffect(() => {
+    const nextVerified: Record<string, boolean> = {};
+    for (const [pId, pubKey] of Object.entries(peerPublicKeys)) {
+      try {
+        const isVer = localStorage.getItem(`verified_peer_${pubKey}`) === 'true';
+        nextVerified[pId] = isVer;
+      } catch (_) {
+        nextVerified[pId] = false;
+      }
+    }
+    setVerifiedPeers(nextVerified);
+  }, [peerPublicKeys]);
+
+  const handleToggleVerifyPeer = (peerId: string, currentVerified: boolean) => {
+    const pubKey = peerPublicKeys[peerId];
+    const newVerified = !currentVerified;
+    setVerifiedPeers((prev) => ({ ...prev, [peerId]: newVerified }));
+    if (pubKey) {
+      try {
+        if (newVerified) {
+          localStorage.setItem(`verified_peer_${pubKey}`, 'true');
+          localStorage.setItem(`peer_key_${peerId}`, pubKey);
+          setKeyChangeWarnings((prev) => ({ ...prev, [peerId]: false }));
+        } else {
+          localStorage.removeItem(`verified_peer_${pubKey}`);
+        }
+      } catch (err) {
+        console.warn('Storage unavailable for peer verification:', err);
+      }
+    }
+  };
+
+  const trustMapPeersList: TrustMapPeerData[] = useMemo(() => {
+    return Object.keys(peers).map((peerId) => {
+      const telem = peerTelemetry.find((t) => t.peerId === peerId);
+      return {
+        peerId,
+        displayName: `Peer #${peerId.slice(0, 6)}`,
+        telemetry: telem,
+        safetyNumber: peerSafetyNumbers[peerId] || null,
+        remotePublicKey: peerPublicKeys[peerId] || null,
+        isVerified: verifiedPeers[peerId] || false,
+        hasKeyChanged: keyChangeWarnings[peerId] || false,
+      };
+    });
+  }, [peers, peerTelemetry, peerSafetyNumbers, peerPublicKeys, verifiedPeers, keyChangeWarnings]);
+
+  const activePeerNodes: PeerNodeData[] = useMemo(() => {
+    return Object.keys(peers).map((peerId) => {
+      const telem = peerTelemetry.find((t) => t.peerId === peerId);
+      return {
+        peerId,
+        displayName: `Peer #${peerId.slice(0, 6)}`,
+        connectionState: peers[peerId] || telem?.connectionState || 'connecting',
+        isSpeaking: remoteSpeaking[peerId] || false,
+        rtt: telem?.rtt,
+        candidateType: telem?.candidateType,
+        connectionPath: telem?.connectionPath,
+        selectedPairConfirmed: telem?.selectedPairConfirmed,
+        hasAudio: !!remoteStreams[peerId]?.getAudioTracks().length,
+        hasVideo: !!remoteStreams[peerId]?.getVideoTracks().length,
+      };
+    });
+  }, [peers, peerTelemetry, remoteSpeaking, remoteStreams]);
+
+  const localUserData = useMemo(() => ({
+    id: localStorage.getItem('userId') || 'local-user',
+    displayName: localStorage.getItem('displayName') || 'You (Host)',
+    isSpeaking: isLocalSpeaking,
+    isMuted,
+    isVideoActive,
+  }), [isLocalSpeaking, isMuted, isVideoActive]);
+
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [inviteCopyError, setInviteCopyError] = useState(false);
+
+  const handleCopyInviteLink = async () => {
+    const url = `${window.location.origin}/room/${roomId}?type=${roomType}`;
+    setInviteCopyError(false);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        setCopiedInvite(true);
+        setTimeout(() => setCopiedInvite(false), 2000);
+        return;
+      }
+      throw new Error('Clipboard API unavailable');
+    } catch (_) {
+      try {
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(input);
+        if (success) {
+          setCopiedInvite(true);
+          setTimeout(() => setCopiedInvite(false), 2000);
+        } else {
+          setInviteCopyError(true);
+          setTimeout(() => setInviteCopyError(false), 3000);
+        }
+      } catch {
+        setInviteCopyError(true);
+        setTimeout(() => setInviteCopyError(false), 3000);
+      }
+    }
+  };
+
   const [showSecurityDetails, setShowSecurityDetails] = useState(false);
   const emojis = ['😀', '😂', '🥰', '😎', '😭', '🥺', '😡', '👍', '👎', '❤️', '🔥', '✨', '🎉', '👀', '🙌', '🤔', '💯', '✅', '❌', '🙏', '👏', '🤝', '☕', '💡'];
 
@@ -875,7 +1065,12 @@ export default function RoomPage() {
                   <span className="text-amber-500 dark:text-amber-400">Waiting for others to join...</span>
                 )}
                 <span className="text-neutral-400 dark:text-neutral-500">•</span>
-                <span className="text-neutral-500 dark:text-neutral-400">🔒 End-to-end encrypted</span>
+                <span
+                  className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1 cursor-help"
+                  title="Media streams use WebRTC DTLS-SRTP transport encryption. Chat text and files use AES-GCM-256 over DataChannels via ephemeral ECDH (P-384). Key exchange over signaling is unauthenticated unless safety numbers are verified out-of-band."
+                >
+                  <ShieldCheck className="w-3 h-3 text-emerald-400 inline" /> DTLS-SRTP Media | AES-GCM DataChannel
+                </span>
               </div>
             </div>
           </div>
@@ -887,13 +1082,55 @@ export default function RoomPage() {
           {/* Light / Dark Mode Toggle */}
           <ThemeToggle />
 
+          {/* P2P TrustMap & Safety Fingerprint Header Button */}
+          <button
+            onClick={() => {
+              setSelectedTrustMapPeerId(Object.keys(peers)[0] || null);
+              setShowTrustMapModal(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm ${
+              Object.values(keyChangeWarnings).some(Boolean)
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                : Object.keys(peers).length > 0 && Object.values(verifiedPeers).every(Boolean)
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'bg-neutral-100 dark:bg-[#202c33] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942]'
+            }`}
+            title="P2P TrustMap: View ICE candidate paths and verify safety numbers"
+            aria-label="P2P TrustMap: View ICE candidate paths and verify safety numbers"
+          >
+            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">TrustMap</span>
+            {Object.values(keyChangeWarnings).some(Boolean) ? (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+            ) : Object.keys(peers).length > 0 && Object.values(verifiedPeers).every(Boolean) ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+            ) : null}
+          </button>
+
+          {/* 3D Peer Mesh Topology Toggle */}
+          <button
+            onClick={() => setShow3DMeshTopology(!show3DMeshTopology)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm ${
+              show3DMeshTopology
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 ring-2 ring-cyan-400/20'
+                : 'bg-neutral-100 dark:bg-[#202c33] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942]'
+            }`}
+            title={show3DMeshTopology ? 'Hide 3D Peer Mesh' : 'View Live 3D Peer Network Topology'}
+            aria-label={show3DMeshTopology ? 'Hide 3D Peer Mesh' : 'View Live 3D Peer Network Topology'}
+          >
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">3D Mesh</span>
+          </button>
+
           {/* Diagnostics HUD Button */}
           <button
             onClick={() => setShowDiagnosticsHUD(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-[#202c33] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942] transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-[#202c33] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942] transition cursor-pointer shadow-sm"
             title="Connection Diagnostics"
+            aria-label="Connection Diagnostics"
           >
-            <span>Diagnostics</span>
+            <Activity className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Diagnostics</span>
           </button>
 
           {/* AI Meeting Notes Button */}
@@ -906,11 +1143,15 @@ export default function RoomPage() {
                 : 'bg-neutral-100 dark:bg-[#202c33] text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60'
             }`}
             title="Generate Meeting Notes"
+            aria-label="Generate Meeting Notes"
           >
             {isSummarizing ? (
               <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             ) : (
-              <span>✨ Notes</span>
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Notes</span>
+              </>
             )}
           </button>
 
@@ -923,8 +1164,9 @@ export default function RoomPage() {
                 : 'hover:bg-black/5 dark:hover:bg-white/10'
             }`}
             title="Quick Notes"
+            aria-label="Quick Notes"
           >
-            <img src="/assets/quick_notes_icon.png" alt="Quick Notes" className="w-7 h-7 object-contain drop-shadow-sm hover:scale-105 transition-transform" />
+            <FileText className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           </button>
 
           {/* Media Calling Controls (Visible when call is not yet activated) */}
@@ -934,19 +1176,17 @@ export default function RoomPage() {
                 onClick={toggleVoice}
                 className="p-2 rounded-full bg-[#00a884] text-white hover:bg-[#02906f] transition shadow-sm cursor-pointer"
                 title="Start Voice Call"
+                aria-label="Start Voice Call"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
+                <PhoneCall className="w-4 h-4" />
               </button>
               <button
                 onClick={toggleVideo}
                 className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition shadow-sm cursor-pointer"
                 title="Start Video Call"
+                aria-label="Start Video Call"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+                <Video className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -960,10 +1200,13 @@ export default function RoomPage() {
                 : 'bg-neutral-100 dark:bg-[#202c33] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942]'
             }`}
             title={isRecordingCall ? 'Stop Call Recording & Save to Computer' : `Record ${isVideoActive ? 'Video' : 'Audio'} Call to Computer`}
+            aria-label={isRecordingCall ? 'Stop Call Recording & Save to Computer' : `Record ${isVideoActive ? 'Video' : 'Audio'} Call to Computer`}
           >
-            <span className={isRecordingCall ? 'w-2 h-2 rounded-full bg-white animate-ping inline-block' : 'text-rose-500'}>
-              {isRecordingCall ? '' : '⏺️'}
-            </span>
+            {isRecordingCall ? (
+              <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block" />
+            ) : (
+              <Radio className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            )}
             <span>
               {isRecordingCall
                 ? `REC ${Math.floor(callRecordSeconds / 60)}:${String(callRecordSeconds % 60).padStart(2, '0')}`
@@ -989,20 +1232,18 @@ export default function RoomPage() {
               }}
               className="p-2 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition cursor-pointer"
               title="End Call For All"
+              aria-label="End Call For All"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <PhoneOff className="w-4 h-4 text-rose-500" />
             </button>
           ) : (
             <button
               onClick={() => navigate('/dashboard')}
               className="p-2 rounded-full bg-neutral-100 dark:bg-[#202c33] text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#2a3942] transition cursor-pointer"
               title="Leave Call"
+              aria-label="Leave Call"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <LogOut className="w-4 h-4 text-neutral-400 hover:text-neutral-200" />
             </button>
           )}
         </div>
@@ -1030,6 +1271,38 @@ export default function RoomPage() {
           </div>
         )}
 
+        {/* Interactive 3D Peer Mesh Stage (when no call is active and 3D view is toggled) */}
+        {show3DMeshTopology && !isCallActive && (
+          <div className="w-full bg-[#0c1317] p-4 sm:p-6 border-b border-[#202c33] flex flex-col items-center animate-fade-in relative z-20">
+            <div className="w-full max-w-5xl flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-white tracking-wide font-mono uppercase">
+                  Live 3D Peer Network Topology
+                </span>
+                <span className="text-[10px] text-cyan-300 font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/30">
+                  {activePeerNodes.length + 1} Nodes Connected
+                </span>
+              </div>
+              <button
+                onClick={() => setShow3DMeshTopology(false)}
+                className="text-xs text-neutral-400 hover:text-white px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 transition cursor-pointer"
+              >
+                ✕ Close 3D View
+              </button>
+            </div>
+            <div className="w-full max-w-5xl">
+              <ErrorBoundary isWebGL fallbackTitle="3D Peer Network Offline" fallbackDescription="The 3D WebGL renderer encountered an error. 2D fallback mode active.">
+                <NetworkTopology3D
+                  localUser={localUserData}
+                  peers={activePeerNodes}
+                  onSelectPeer={() => setShowDiagnosticsHUD(true)}
+                />
+              </ErrorBoundary>
+            </div>
+          </div>
+        )}
+
         {/* WhatsApp Call Stage (Active Media Panel) */}
         {isCallActive && (
           <div className="flex-[2.5] bg-[#0c1317] p-4 sm:p-6 flex flex-col items-center justify-center relative shadow-2xl z-20 overflow-y-auto max-h-[50vh] md:max-h-none border-b md:border-b-0 md:border-r border-[#202c33]">
@@ -1050,27 +1323,64 @@ export default function RoomPage() {
               </div>
             )}
 
+            {/* Real Interactive 3D Mesh Topology in Call Stage */}
+            {show3DMeshTopology && (
+              <div className="w-full max-w-5xl mb-6 relative z-10 animate-fade-in">
+                <ErrorBoundary isWebGL fallbackTitle="3D Call Stage Mesh Offline" fallbackDescription="The 3D WebGL renderer encountered an error. 2D fallback mode active.">
+                  <NetworkTopology3D
+                    localUser={localUserData}
+                    peers={activePeerNodes}
+                    onSelectPeer={() => setShowDiagnosticsHUD(true)}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
+
             <div className="flex flex-wrap justify-center gap-4 sm:gap-6 w-full h-full max-w-6xl items-center pb-20">
               
               {/* Local Stream Tile */}
               {(isVideoActive || isVoiceActive) && (
                 <div className={`relative flex-1 min-w-[280px] sm:min-w-[340px] max-w-3xl aspect-video rounded-3xl overflow-hidden shadow-2xl border transition-all duration-300 flex items-center justify-center bg-[#111b21] ${
                   isLocalSpeaking
-                    ? 'border-[#00a884] shadow-[0_0_25px_rgba(0,168,132,0.4)]'
+                    ? 'border-[#00a884] shadow-[0_0_30px_rgba(0,168,132,0.45)] ring-2 ring-emerald-500/20'
                     : 'border-[#202c33]'
                 }`}>
+                  {/* Top HUD Overlay for Local User */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-auto">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 backdrop-blur-md flex items-center gap-1 shadow-sm">
+                      <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
+                      <span>Local Peer Node</span>
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 shadow-sm ${
+                      isMuted
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}>
+                      {isMuted ? <MicOff className="w-2.5 h-2.5 text-rose-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />}
+                      <span>{isMuted ? 'Muted' : 'Mic Active'}</span>
+                    </span>
+                  </div>
+
+                  {/* Audio-Reactive Glowing Rings */}
+                  {isLocalSpeaking && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border border-emerald-400/30 animate-ping opacity-40" />
+                      <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-cyan-400/25 animate-pulse opacity-50" />
+                    </div>
+                  )}
+
                   {isVideoActive && cameraStream ? (
                     <div className="w-full h-full">
                       <VideoPlayer stream={cameraStream} isLocal={true} />
                       <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-[#111b21]/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-xs text-white">
                         <span className="w-2 h-2 rounded-full bg-[#00a884] animate-pulse"></span>
-                        <span>You</span>
+                        <span>You (Host)</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center p-6">
-                      <div className={`w-20 h-20 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-2xl mb-4 border-2 border-white/20 transition-transform ${
-                        isLocalSpeaking ? 'scale-110 shadow-[0_0_25px_rgba(0,168,132,0.6)] border-emerald-400' : ''
+                    <div className="flex flex-col items-center p-6 relative z-10">
+                      <div className={`w-20 h-20 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-2xl mb-4 border-2 transition-transform duration-300 relative z-10 ${
+                        isLocalSpeaking ? 'scale-110 shadow-[0_0_30px_rgba(0,168,132,0.7)] border-emerald-400 ring-4 ring-emerald-500/30' : 'border-white/20'
                       }`}>
                         {localStorage.getItem('avatarUrl') ? (
                           <img src={localStorage.getItem('avatarUrl')!} alt="You" className="w-full h-full object-cover" />
@@ -1116,51 +1426,134 @@ export default function RoomPage() {
                 </div>
               )}
 
-              {/* Remote Peer Stream Tiles */}
-              {Object.entries(remoteStreams).map(([peerId, stream]) => {
-                const hasVideo = stream.getVideoTracks().length > 0;
+              {/* Remote Peer Stream Tiles with P2P TrustMap & Audio Indicators */}
+              {Object.keys(peers).map((peerId) => {
+                const stream = remoteStreams[peerId];
+                const hasVideo = stream ? stream.getVideoTracks().length > 0 : false;
                 const isSpeaking = remoteSpeaking[peerId] || false;
+                const telem = peerTelemetry.find((t) => t.peerId === peerId);
+                const isDirect = telem?.connectionPath.toLowerCase().includes('direct');
+                const isRelayed = telem?.connectionPath.toLowerCase().includes('relay');
+                const isVerified = verifiedPeers[peerId];
+                const hasKeyChanged = keyChangeWarnings[peerId];
 
                 return (
                   <div
                     key={peerId}
                     className={`relative flex-1 min-w-[280px] sm:min-w-[340px] max-w-3xl aspect-video rounded-3xl overflow-hidden shadow-2xl border transition-all duration-300 flex items-center justify-center bg-[#111b21] ${
                       isSpeaking
-                        ? 'border-[#00a884] shadow-[0_0_25px_rgba(0,168,132,0.4)]'
+                        ? 'border-[#00a884] shadow-[0_0_30px_rgba(0,168,132,0.45)] ring-2 ring-emerald-500/20'
+                        : hasKeyChanged
+                        ? 'border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+                        : isVerified
+                        ? 'border-emerald-500/40'
                         : 'border-[#202c33]'
                     }`}
                   >
-                    <div className={hasVideo ? 'w-full h-full' : 'hidden'}>
-                      <VideoPlayer stream={stream} />
+                    {/* Top HUD Overlay: Transport & TrustMap Verification Badge */}
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-auto">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 shadow-sm ${
+                            isDirect
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : isRelayed
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          }`}
+                        >
+                          <Radio className="w-2.5 h-2.5 animate-pulse" />
+                          <span>{isDirect ? 'Direct P2P' : isRelayed ? 'Relayed (TURN)' : 'P2P Active'}</span>
+                        </span>
+                        {telem?.rtt !== null && telem?.rtt !== undefined && telem.rtt > 0 && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/60 text-emerald-400 border border-white/10 backdrop-blur-md shadow-sm">
+                            {telem.rtt} ms
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTrustMapPeerId(peerId);
+                          setShowTrustMapModal(true);
+                        }}
+                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 transition cursor-pointer shadow-sm ${
+                          hasKeyChanged
+                            ? 'bg-rose-500/30 text-rose-200 border border-rose-500/50 animate-pulse'
+                            : isVerified
+                            ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/35'
+                            : 'bg-amber-500/25 text-amber-300 border border-amber-500/40 hover:bg-amber-500/35'
+                        }`}
+                        title="P2P TrustMap: Verify peer identity fingerprint"
+                        aria-label="P2P TrustMap: Verify peer identity fingerprint"
+                      >
+                        {hasKeyChanged ? (
+                          <>
+                            <ShieldAlert className="w-3 h-3 text-rose-400" />
+                            <span>Key Changed!</span>
+                          </>
+                        ) : isVerified ? (
+                          <>
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>Verified</span>
+                          </>
+                        ) : (
+                          <>
+                            <Fingerprint className="w-3 h-3 text-amber-400" />
+                            <span>Verify Safety</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
-                    {!hasVideo && (
-                      <div className="flex flex-col items-center p-6">
-                        <div className={`w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center shadow-2xl mb-4 transition-transform ${
-                          isSpeaking ? 'scale-110 shadow-[0_0_25px_rgba(0,168,132,0.6)]' : ''
+                    {/* Audio-Reactive Glowing Rings */}
+                    {isSpeaking && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border border-emerald-400/30 animate-ping opacity-40" />
+                        <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-cyan-400/25 animate-pulse opacity-50" />
+                      </div>
+                    )}
+
+                    {/* Video / Audio Content */}
+                    {hasVideo && stream ? (
+                      <div className="w-full h-full">
+                        <VideoPlayer stream={stream} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center p-6 relative z-10">
+                        <div className={`w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl mb-4 transition-transform duration-300 relative z-10 border-2 ${
+                          isSpeaking
+                            ? 'scale-110 shadow-[0_0_30px_rgba(16,185,129,0.7)] border-emerald-400 ring-4 ring-emerald-500/30'
+                            : 'border-white/20'
                         }`}>
                           <span className="text-xl font-bold text-white">Peer</span>
                         </div>
                         <span className="text-xs text-neutral-300 mb-3 font-medium">Participant #{peerId.substring(0, 4)}</span>
-                        <AudioFrequencyWave
-                          stream={stream}
-                          onSpeakingChange={(spk) => setRemoteSpeaking(prev => ({ ...prev, [peerId]: spk }))}
-                          width={180}
-                          height={36}
-                        />
+                        {stream ? (
+                          <AudioFrequencyWave
+                            stream={stream}
+                            onSpeakingChange={(spk) => setRemoteSpeaking((prev) => ({ ...prev, [peerId]: spk }))}
+                            width={180}
+                            height={36}
+                          />
+                        ) : (
+                          <span className="text-[11px] text-neutral-500">Connected via P2P DataChannel</span>
+                        )}
                       </div>
                     )}
 
+                    {/* Bottom Pill: Peer Name */}
                     <div className="absolute bottom-3 left-3 bg-[#111b21]/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-xs text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#00a884]"></span>
+                      <span className={`w-2 h-2 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`}></span>
                       <span>Peer #{peerId.substring(0, 4)}</span>
                     </div>
 
-                    {hasVideo && (
+                    {hasVideo && stream && (
                       <div className="absolute bottom-3 right-3">
                         <AudioFrequencyWave
                           stream={stream}
-                          onSpeakingChange={(spk) => setRemoteSpeaking(prev => ({ ...prev, [peerId]: spk }))}
+                          onSpeakingChange={(spk) => setRemoteSpeaking((prev) => ({ ...prev, [peerId]: spk }))}
                           width={100}
                           height={24}
                           barCount={14}
@@ -1172,94 +1565,106 @@ export default function RoomPage() {
               })}
             </div>
 
-            {/* Floating Call Controls Dock */}
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-3.5 items-center liquid-glass-dock px-6 py-2.5 rounded-full z-30">
+            {/* Futuristic Floating HUD Call Controls Dock */}
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 sm:gap-3.5 items-center liquid-glass-dock px-4 sm:px-6 py-2.5 rounded-full z-30 shadow-2xl border border-cyan-500/30">
               
               {/* Mic Toggle */}
               <button
                 onClick={toggleMute}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
                   isMuted
-                    ? 'bg-white text-neutral-900 shadow-md'
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                     : 'bg-[#202c33] hover:bg-[#2a3942] text-white'
                 }`}
                 title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               >
-                {isMuted ? (
-                  <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth={2.2} />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                )}
+                {isMuted ? <MicOff className="w-5 h-5 text-rose-400" /> : <Mic className="w-5 h-5 text-emerald-400" />}
               </button>
 
               {/* Video Toggle */}
               <button
                 onClick={toggleVideo}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
                   !isVideoActive
-                    ? 'bg-white text-neutral-900 shadow-md'
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                     : 'bg-[#202c33] hover:bg-[#2a3942] text-white'
                 }`}
                 title={isVideoActive ? 'Turn Off Camera' : 'Turn On Camera'}
+                aria-label={isVideoActive ? 'Turn Off Camera' : 'Turn On Camera'}
               >
-                {!isVideoActive ? (
-                  <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth={2.2} />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                )}
+                {!isVideoActive ? <VideoOff className="w-5 h-5 text-rose-400" /> : <Video className="w-5 h-5 text-blue-400" />}
               </button>
 
               {/* Screen Share Toggle */}
               <button
                 onClick={toggleScreenShare}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
                   isScreenSharing
-                    ? 'bg-[#00a884] text-white shadow-md'
+                    ? 'bg-[#00a884] text-white shadow-md ring-2 ring-[#00a884]/40'
                     : 'bg-[#202c33] hover:bg-[#2a3942] text-white'
                 }`}
                 title={isScreenSharing ? 'Stop Screen Sharing' : 'Share Screen'}
+                aria-label={isScreenSharing ? 'Stop Screen Sharing' : 'Share Screen'}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+                <Monitor className={`w-5 h-5 ${isScreenSharing ? 'text-white' : 'text-cyan-400'}`} />
+              </button>
+
+              {/* P2P TrustMap & Safety Fingerprint Dock Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTrustMapPeerId(Object.keys(peers)[0] || null);
+                  setShowTrustMapModal(true);
+                }}
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md bg-[#202c33] hover:bg-[#2a3942] text-amber-400 border border-amber-500/30 relative"
+                title="P2P TrustMap & Safety Fingerprint Verification"
+                aria-label="P2P TrustMap & Safety Fingerprint Verification"
+              >
+                <Fingerprint className="w-5 h-5 text-amber-300" />
+                {Object.values(keyChangeWarnings).some(Boolean) ? (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                ) : Object.keys(peers).length > 0 && Object.values(verifiedPeers).every(Boolean) ? (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400" />
+                ) : null}
+              </button>
+
+              {/* 3D Peer Mesh Topology Toggle */}
+              <button
+                onClick={() => setShow3DMeshTopology(!show3DMeshTopology)}
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
+                  show3DMeshTopology
+                    ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.3)] ring-2 ring-cyan-400/30'
+                    : 'bg-[#202c33] hover:bg-[#2a3942] text-cyan-400'
+                }`}
+                title={show3DMeshTopology ? 'Hide 3D Peer Mesh' : 'View 3D Peer Network Topology'}
+                aria-label={show3DMeshTopology ? 'Hide 3D Peer Mesh' : 'View 3D Peer Network Topology'}
+              >
+                <Activity className="w-5 h-5 text-cyan-300" />
               </button>
 
               {/* Call Record Toggle Button */}
               <button
                 onClick={isRecordingCall ? stopCallRecording : () => startCallRecording(isVideoActive ? 'video' : 'audio')}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md ${
                   isRecordingCall
                     ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/40 animate-pulse'
                     : 'bg-[#202c33] hover:bg-[#2a3942] text-rose-400'
                 }`}
                 title={isRecordingCall ? 'Stop Call Recording & Save to Computer' : `Record ${isVideoActive ? 'Video' : 'Audio'} Call`}
+                aria-label={isRecordingCall ? 'Stop Call Recording & Save to Computer' : `Record ${isVideoActive ? 'Video' : 'Audio'} Call`}
               >
-                {isRecordingCall ? (
-                  <div className="w-4 h-4 rounded-sm bg-white" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full bg-rose-500 ring-2 ring-rose-500/30" />
-                )}
+                <Radio className={`w-5 h-5 ${isRecordingCall ? 'text-white' : 'text-rose-400'}`} />
               </button>
 
-              {/* WhatsApp Hang Up Red Button */}
+              {/* Hang Up Red Button */}
               <button
                 onClick={endCall}
-                className="bg-[#ea0038] hover:bg-[#d00030] text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg shadow-rose-600/30 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                className="bg-[#ea0038] hover:bg-[#d00030] text-white rounded-full w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg shadow-rose-600/30 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
                 title="Hang Up Call"
+                aria-label="Hang Up Call"
               >
-                <svg className="w-6 h-6 transform rotate-[135deg]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.43-3.9-6.8-6.72l1.97-1.61c.29-.26.38-.65.25-1.02A11.36 11.36 0 018.76 4c0-.55-.45-1-1-1H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.44c0-.55-.45-1-.99-1z" />
-                </svg>
+                <PhoneOff className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -1275,13 +1680,15 @@ export default function RoomPage() {
                 className="p-2 text-center text-xs font-medium text-amber-300 cursor-pointer hover:bg-white/5 transition flex items-center justify-center gap-1.5"
                 onClick={() => setShowSecurityDetails(!showSecurityDetails)}
               >
-                <span>🔒 End-to-End Encrypted Direct Channel</span>
+                <span>🔒 Encrypted Transport &amp; Data Channels</span>
                 <span className="text-[10px] text-amber-400/80">({showSecurityDetails ? 'hide details' : 'view details'})</span>
               </div>
               {showSecurityDetails && (
                 <div className="p-3 text-xs bg-black/40 text-neutral-300 space-y-1 text-center border-t border-amber-500/20">
                   <p><strong className="text-white">Classification:</strong> {securityPolicy.level}</p>
-                  <p><strong className="text-white">Encryption:</strong> WebRTC AES-GCM / ECDH</p>
+                  <p><strong className="text-white">Media Transport:</strong> DTLS-SRTP (WebRTC Standard)</p>
+                  <p><strong className="text-white">DataChannel Payloads:</strong> AES-GCM-256 via Ephemeral ECDH (P-384)</p>
+                  <p><strong className="text-white">Signaling Key Exchange:</strong> Unauthenticated ECDH (Verify Safety Numbers out-of-band for MITM defense)</p>
                   <p><strong className="text-white">TTL:</strong> {securityPolicy.maxTTL > 0 ? `${securityPolicy.maxTTL}s` : 'Permanent'}</p>
                 </div>
               )}
@@ -1293,7 +1700,7 @@ export default function RoomPage() {
             
             {/* WhatsApp Yellow Security Disclaimer Pill */}
             <div className="mx-auto my-2 max-w-md bg-[#ffeebd] dark:bg-[#182229] border border-amber-300 dark:border-amber-500/20 px-3.5 py-1.5 rounded-xl text-center text-[11px] text-amber-900 dark:text-[#ffd279] shadow-sm">
-              🔒 Messages and calls are end-to-end encrypted. No third party can read or listen to them.
+              🔒 Media uses DTLS-SRTP transport encryption. Chat text/files use AES-GCM-256 over DataChannel. Verify Safety Numbers independently to confirm peer identity.
             </div>
 
             {messages.length === 0 && (
@@ -1453,9 +1860,7 @@ export default function RoomPage() {
                     className="w-9 h-9 rounded-full bg-[#00a884] hover:bg-[#02906f] text-white flex items-center justify-center transition shadow-md shadow-emerald-600/30 cursor-pointer active:scale-95"
                     title="Send Voice Note"
                   >
-                    <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                    </svg>
+                    <Send className="w-4 h-4 ml-0.5" />
                   </button>
                 </div>
               </div>
@@ -1473,9 +1878,7 @@ export default function RoomPage() {
                       className="p-1 text-neutral-500 dark:text-[#8696a0] hover:text-neutral-700 dark:hover:text-white transition cursor-pointer"
                       title="Insert Emoji"
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <Smile className="w-5 h-5" />
                     </button>
 
                     {showEmojiPicker && (
@@ -1501,9 +1904,7 @@ export default function RoomPage() {
 
                   {/* Direct P2P File Attachment */}
                   <label className="p-1 cursor-pointer text-neutral-500 dark:text-[#8696a0] hover:text-[#00a884] transition" title="Attach File">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
+                    <Paperclip className="w-5 h-5" />
                     <input type="file" className="hidden" onChange={handleFileSelect} />
                   </label>
 
@@ -1549,7 +1950,7 @@ export default function RoomPage() {
                       }`}
                       title="AI Notes & Actions"
                     >
-                      ✨
+                      <Sparkles className="w-4 h-4" />
                     </button>
 
                     {showAiMenu && (
@@ -1581,13 +1982,7 @@ export default function RoomPage() {
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 transform shrink-0 shadow-md bg-[#00a884] hover:bg-[#02906f] text-white active:scale-95 cursor-pointer shadow-emerald-600/30"
                     title="Send message"
                   >
-                    <svg
-                      className="w-5 h-5 ml-0.5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                    </svg>
+                    <Send className="w-4 h-4 ml-0.5" />
                   </button>
                 ) : (
                   <button
@@ -1596,9 +1991,7 @@ export default function RoomPage() {
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 transform shrink-0 shadow-md bg-[#00a884] hover:bg-[#02906f] text-white active:scale-95 cursor-pointer shadow-emerald-600/30 group"
                     title="Record voice note"
                   >
-                    <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
+                    <Mic className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
                 )}
               </form>
@@ -1638,16 +2031,19 @@ export default function RoomPage() {
                     className="flex-1 p-2 rounded-xl text-xs bg-white dark:bg-[#111b21] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-mono"
                   />
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}?type=${roomType}`);
-                      setCopiedInvite(true);
-                      setTimeout(() => setCopiedInvite(false), 2000);
-                    }}
-                    className="bg-[#00a884] hover:bg-[#02906f] text-white px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer transition active:scale-95"
+                    onClick={handleCopyInviteLink}
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer transition active:scale-95 ${
+                      inviteCopyError
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-[#00a884] hover:bg-[#02906f] text-white'
+                    }`}
                   >
-                    {copiedInvite ? 'Copied! ✓' : 'Copy'}
+                    {copiedInvite ? 'Copied! ✓' : inviteCopyError ? 'Failed!' : 'Copy'}
                   </button>
                 </div>
+                {inviteCopyError && (
+                  <p className="text-[10px] text-rose-400 mt-1">Clipboard denied. Select and copy the text field above.</p>
+                )}
               </div>
 
               {/* Connected Peers List */}
@@ -1690,6 +2086,16 @@ export default function RoomPage() {
         isOpen={showDiagnosticsHUD}
         onClose={() => setShowDiagnosticsHUD(false)}
         auditChain={auditChain}
+      />
+
+      {/* P2P Cryptographic TrustMap Modal */}
+      <P2PTrustMapModal
+        isOpen={showTrustMapModal}
+        onClose={() => setShowTrustMapModal(false)}
+        peers={trustMapPeersList}
+        selectedPeerId={selectedTrustMapPeerId}
+        onSelectPeer={(id) => setSelectedTrustMapPeerId(id)}
+        onToggleVerify={handleToggleVerifyPeer}
       />
 
       {/* AI Meeting Notes & Action Items Modal */}

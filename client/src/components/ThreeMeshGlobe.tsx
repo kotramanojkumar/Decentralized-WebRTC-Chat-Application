@@ -1,10 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useWebGLSupport } from '../hooks/useWebGLSupport';
+import WebGLCanvasFallback from './WebGLCanvasFallback';
 
 export default function ThreeMeshGlobe() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const { canRender3D } = useWebGLSupport();
+  const [renderError, setRenderError] = useState(false);
 
   useEffect(() => {
+    if (!canRender3D || renderError) return;
     const mount = mountRef.current;
     if (!mount) return;
 
@@ -20,7 +25,14 @@ export default function ThreeMeshGlobe() {
     );
     camera.position.z = 18;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (e) {
+      console.warn('WebGL initialization failed, falling back to 2D:', e);
+      setRenderError(true);
+      return;
+    }
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
@@ -202,7 +214,18 @@ export default function ThreeMeshGlobe() {
       particleGeo.dispose();
       particleMat.dispose();
     };
-  }, []);
+  }, [canRender3D, renderError]);
+
+  if (!canRender3D || renderError) {
+    return (
+      <div className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden opacity-60">
+        <WebGLCanvasFallback
+          title="Decentralized Peer-to-Peer Lattice"
+          description="High-performance 2D canvas mode active."
+        />
+      </div>
+    );
+  }
 
   return (
     <div

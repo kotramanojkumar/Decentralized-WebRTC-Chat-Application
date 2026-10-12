@@ -35,9 +35,8 @@ export default function NetworkDiagnosticsHUD({
         const numbers: Record<string, string> = {};
         for (const [peerId, crypto] of cryptoManagers.entries()) {
           try {
-            const pubKey = await crypto.exportPublicKey();
-            const sn = await crypto.generateSafetyNumber(pubKey);
-            numbers[peerId] = sn;
+            const sn = await crypto.getSafetyNumber();
+            if (sn) numbers[peerId] = sn;
           } catch (e) {}
         }
         setSafetyNumbers(numbers);
@@ -88,7 +87,7 @@ export default function NetworkDiagnosticsHUD({
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(px, py);
-        ctx.strokeStyle = peer.rtt < 100 ? 'rgba(74, 222, 128, 0.4)' : 'rgba(250, 204, 21, 0.4)';
+        ctx.strokeStyle = peer.rtt !== null && peer.rtt < 100 ? 'rgba(74, 222, 128, 0.4)' : 'rgba(250, 204, 21, 0.4)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
@@ -214,11 +213,11 @@ export default function NetworkDiagnosticsHUD({
                 <div className="flex-1 space-y-2 text-xs">
                   <div className="text-white/80 font-semibold text-sm">Decentralized Mesh Status</div>
                   <p className="text-white/50 leading-relaxed">
-                    Zero relay hops detected. Media and data packets travel point-to-point via direct UDP sockets.
+                    Transport paths are negotiated via ICE. Direct P2P sockets are established when NAT permits, with TURN relay fallback when direct routing is blocked.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      Mesh Topology: Verified P2P
+                      Mesh Signaling: Active
                     </span>
                     <span className="px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
                       Transport: SCTP / DTLS-SRTP
@@ -251,22 +250,22 @@ export default function NetworkDiagnosticsHUD({
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                         <div className="p-2.5 rounded-lg bg-black/30 border border-white/5">
                           <div className="text-white/40 mb-1">Latency (RTT)</div>
-                          <div className={`font-mono font-bold text-sm ${peer.rtt < 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {peer.rtt > 0 ? `${peer.rtt} ms` : '&lt; 15 ms (Local)'}
+                          <div className={`font-mono font-bold text-sm ${peer.rtt !== null && peer.rtt < 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {peer.rtt !== null && peer.rtt > 0 ? `${peer.rtt} ms` : 'Unavailable'}
                           </div>
                         </div>
 
                         <div className="p-2.5 rounded-lg bg-black/30 border border-white/5">
-                          <div className="text-white/40 mb-1">ICE Candidate</div>
-                          <div className="font-mono text-xs text-blue-300 truncate" title={peer.candidateType}>
-                            {peer.candidateType}
+                          <div className="text-white/40 mb-1">ICE Transport Path</div>
+                          <div className="font-mono text-xs text-blue-300 truncate" title={`${peer.connectionPath} (Candidate: ${peer.candidateType})`}>
+                            {peer.connectionPath}
                           </div>
                         </div>
 
                         <div className="p-2.5 rounded-lg bg-black/30 border border-white/5">
                           <div className="text-white/40 mb-1">Packet Loss</div>
                           <div className="font-mono text-xs text-emerald-400">
-                            {peer.packetLoss} packets (0%)
+                            {peer.packetLoss !== null ? `${peer.packetLoss}%` : 'None recorded'}
                           </div>
                         </div>
 
@@ -288,7 +287,7 @@ export default function NetworkDiagnosticsHUD({
           {activeTab === 'crypto' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-200">
-                <span className="font-bold">Cryptographic Man-in-the-Middle (MITM) Protection:</span> These 60-digit safety numbers are deterministically derived from both peers' Elliptic Curve Diffie-Hellman (P-384) public keys. If both users see matching numbers, your communication tunnel is mathematically guaranteed to be unintercepted.
+                <span className="font-bold">Out-of-Band Safety Number Verification:</span> Signaling key exchange uses unauthenticated ECDH (P-384). These 60-digit safety numbers are deterministically computed from both peers' public keys via SHA-256. To detect signaling channel interception (MITM), verify that this fingerprint matches your peer's fingerprint via a trusted second channel.
               </div>
 
               {Object.keys(safetyNumbers).length === 0 ? (
@@ -316,8 +315,8 @@ export default function NetworkDiagnosticsHUD({
                       {safetyNumber}
                     </div>
 
-                    <div className="flex items-center justify-center gap-2 text-xs text-emerald-400 font-medium">
-                      <span>✓ 384-Bit Elliptic Curve Diffie-Hellman Verified</span>
+                    <div className="flex items-center justify-center gap-2 text-xs text-amber-300 font-medium">
+                      <span>Compare fingerprint out-of-band to verify peer identity</span>
                     </div>
                   </div>
                 ))

@@ -1,27 +1,81 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
+import { useWebGLSupport } from '../hooks/useWebGLSupport';
+import WebGLCanvasFallback from './WebGLCanvasFallback';
+import { Users, Radio } from 'lucide-react';
 
-interface RoomNode {
+export interface PeerNodeData {
+  peerId: string;
+  displayName?: string;
+  connectionState: 'connected' | 'connecting' | 'disconnected' | 'failed' | string;
+  isSpeaking?: boolean;
+  rtt?: number | null;
+  candidateType?: string;
+  connectionPath?: string;
+  selectedPairConfirmed?: boolean;
+  hasAudio?: boolean;
+  hasVideo?: boolean;
+}
+
+export interface LocalUserData {
+  id?: string;
+  displayName?: string;
+  isSpeaking?: boolean;
+  isMuted?: boolean;
+  isVideoActive?: boolean;
+}
+
+export interface RoomNode {
   id: string;
   name: string;
   type: string;
   code: string;
 }
 
-interface NetworkTopology3DProps {
+export interface NetworkTopology3DProps {
+  localUser?: LocalUserData;
+  peers?: PeerNodeData[];
   rooms?: RoomNode[];
+  onSelectPeer?: (peerId: string) => void;
   onSelectRoom?: (code: string) => void;
+  className?: string;
 }
 
-export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkTopology3DProps) {
+export default function NetworkTopology3D({
+  localUser = { displayName: 'You (Local)' },
+  peers = [],
+  rooms = [],
+  onSelectPeer,
+  onSelectRoom,
+  className = '',
+}: NetworkTopology3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [hoveredNode, setHoveredNode] = useState<{ name: string; type: string; code: string } | null>(null);
+  const { canRender3D } = useWebGLSupport();
+  const [renderError, setRenderError] = useState(false);
+  const [hoveredPeer, setHoveredPeer] = useState<PeerNodeData | null>(null);
+
+  // Normalize peer list or fallback to rooms if room browsing mode
+  const effectivePeers: PeerNodeData[] = useMemo(() => {
+    if (peers.length > 0) return peers;
+    if (rooms.length > 0) {
+      return rooms.map((r) => ({
+        peerId: r.code,
+        displayName: r.name,
+        connectionState: 'connected',
+        candidateType: 'Mesh Channel',
+        rtt: 18,
+        isSpeaking: false,
+      }));
+    }
+    return [];
+  }, [peers, rooms]);
 
   useEffect(() => {
+    if (!canRender3D || renderError) return;
     const mount = mountRef.current;
     if (!mount) return;
 
-    // 1. Scene, Camera & Lights Setup
+    // 1. Scene, Camera & Depth Lighting
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x060913, 0.035);
 
@@ -31,78 +85,85 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
       0.1,
       100
     );
-    camera.position.set(0, 2.5, 12);
+    camera.position.set(0, 2, 12);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    } catch (e) {
+      console.warn('WebGL initialization failed for NetworkTopology3D, falling back to 2D:', e);
+      setRenderError(true);
+      return;
+    }
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     mount.appendChild(renderer.domElement);
 
-    // Warm Ambient & Atmospheric Lights for human-crafted depth
+    // Human-tuned Atmospheric Lights
     const ambientLight = new THREE.AmbientLight(0x475569, 1.2);
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight(0x22d3ee, 3, 25);
-    pointLight.position.set(0, 0, 2);
-    scene.add(pointLight);
+    const cyanPoint = new THREE.PointLight(0x00f0ff, 3.2, 28);
+    cyanPoint.position.set(0, 1, 3);
+    scene.add(cyanPoint);
 
-    const violetLight = new THREE.PointLight(0x8b5cf6, 2.5, 25);
-    violetLight.position.set(-6, 3, 2);
-    scene.add(violetLight);
+    const violetPoint = new THREE.PointLight(0x8b5cf6, 2.8, 25);
+    violetPoint.position.set(-6, 3, 2);
+    scene.add(violetPoint);
 
-    const emeraldLight = new THREE.PointLight(0x10b981, 2, 20);
-    emeraldLight.position.set(6, -2, 2);
-    scene.add(emeraldLight);
+    const emeraldPoint = new THREE.PointLight(0x10b981, 2.2, 22);
+    emeraldPoint.position.set(6, -2, 2);
+    scene.add(emeraldPoint);
 
-    // 2. Central Local Node (Smooth Glowing P2P Core)
+    // 2. Central Local Node (Local User Sovereign Core)
     const centralGroup = new THREE.Group();
 
-    // Inner Core Sphere with high quality material
     const coreGeo = new THREE.SphereGeometry(1.2, 32, 32);
     const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7, // Deep cyan/azure
-      roughness: 0.2,
-      metalness: 0.6,
+      color: 0x0284c7,
+      roughness: 0.15,
+      metalness: 0.7,
       emissive: 0x0369a1,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.6,
     });
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     centralGroup.add(coreMesh);
 
-    // Outer Translucent Shield Atmosphere
-    const atmosphereGeo = new THREE.SphereGeometry(1.45, 32, 32);
-    const atmosphereMat = new THREE.MeshStandardMaterial({
-      color: 0x22d3ee,
+    // Acoustic Voice Energy Sphere (pulses on microphone energy)
+    const acousticGeo = new THREE.SphereGeometry(1.48, 32, 32);
+    const acousticMat = new THREE.MeshStandardMaterial({
+      color: localUser.isSpeaking ? 0x10b981 : 0x22d3ee,
       roughness: 0.1,
-      metalness: 0.1,
+      metalness: 0.2,
       transparent: true,
-      opacity: 0.25,
-      wireframe: false,
+      opacity: localUser.isSpeaking ? 0.45 : 0.2,
+      emissive: localUser.isSpeaking ? 0x059669 : 0x0891b2,
+      emissiveIntensity: localUser.isSpeaking ? 0.8 : 0.3,
     });
-    const atmosphereMesh = new THREE.Mesh(atmosphereGeo, atmosphereMat);
-    centralGroup.add(atmosphereMesh);
+    const acousticMesh = new THREE.Mesh(acousticGeo, acousticMat);
+    centralGroup.add(acousticMesh);
 
-    // Subtle Wireframe Ring around Core
-    const coreWireGeo = new THREE.IcosahedronGeometry(1.35, 2);
-    const coreWireMat = new THREE.MeshBasicMaterial({
+    // Wireframe Cage around Local Node
+    const cageGeo = new THREE.IcosahedronGeometry(1.4, 2);
+    const cageMat = new THREE.MeshBasicMaterial({
       color: 0x67e8f9,
       wireframe: true,
       transparent: true,
       opacity: 0.35,
     });
-    const coreWireMesh = new THREE.Mesh(coreWireGeo, coreWireMat);
-    centralGroup.add(coreWireMesh);
+    const cageMesh = new THREE.Mesh(cageGeo, cageMat);
+    centralGroup.add(cageMesh);
 
     scene.add(centralGroup);
 
-    // 3. Delicate Orbital Rings
+    // 3. Orbital Guidance Rings
     const orbitRingGeo1 = new THREE.TorusGeometry(4.8, 0.02, 16, 120);
     const orbitRingMat1 = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.25,
     });
     const orbitRing1 = new THREE.Mesh(orbitRingGeo1, orbitRingMat1);
     orbitRing1.rotation.x = Math.PI / 2.3;
@@ -120,89 +181,98 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
     orbitRing2.rotation.y = -0.25;
     scene.add(orbitRing2);
 
-    // 4. Satellite Nodes (Representing Peer Rooms)
-    const effectiveRooms = rooms.length > 0 ? rooms : [
-      { id: '1', name: 'Direct P2P Bridge', type: 'p2p', code: 'direct-p2p' },
-      { id: '2', name: 'Mesh Conference', type: 'group', code: 'mesh-conf' },
-      { id: '3', name: 'Encrypted Vault', type: 'vault', code: 'vault-room' },
-    ];
+    // 4. Remote Connected Peer Nodes
+    const satelliteMeshes: {
+      mesh: THREE.Mesh;
+      peer: PeerNodeData;
+      angle: number;
+      radius: number;
+      yOffset: number;
+      line: THREE.Line;
+      lineGeo: THREE.BufferGeometry;
+    }[] = [];
 
-    const satelliteMeshes: { mesh: THREE.Mesh; room: RoomNode; baseScale: number; angle: number; radius: number; speed: number; yOffset: number }[] = [];
-    const linesGroup = new THREE.Group();
-    scene.add(linesGroup);
-
-    // Particles traveling along connection streams
+    const packetMeshes: { mesh: THREE.Mesh; targetIdx: number; progress: number; speed: number }[] = [];
     const packetGeo = new THREE.SphereGeometry(0.06, 8, 8);
     const packetMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const packetMeshes: { mesh: THREE.Mesh; targetIdx: number; progress: number; speed: number }[] = [];
 
-    effectiveRooms.forEach((room, idx) => {
-      const angle = (idx / effectiveRooms.length) * Math.PI * 2;
+    const peerCount = Math.max(1, effectivePeers.length);
+
+    effectivePeers.forEach((peer, idx) => {
+      const angle = (idx / peerCount) * Math.PI * 2;
       const radius = 4.8;
-      const speed = 0.25 + idx * 0.05;
+      const isConnected = peer.connectionState === 'connected';
+      const isConnecting = peer.connectionState === 'connecting';
 
-      let satGeo: THREE.BufferGeometry;
-      let satMat: THREE.Material;
+      // Shape & Material based on connection and speaking state
+      const satGeo = new THREE.DodecahedronGeometry(0.65, 0);
+      let satColor = 0x06b6d4; // Cyan (connected)
+      let emissiveColor = 0x0e7490;
 
-      if (room.type === 'p2p') {
-        satGeo = new THREE.IcosahedronGeometry(0.65, 1);
-        satMat = new THREE.MeshStandardMaterial({
-          color: 0x8b5cf6, // Electric violet
-          roughness: 0.2,
-          metalness: 0.5,
-          emissive: 0x5b21b6,
-          emissiveIntensity: 0.4,
-        });
-      } else if (room.type === 'group') {
-        satGeo = new THREE.DodecahedronGeometry(0.7, 0);
-        satMat = new THREE.MeshStandardMaterial({
-          color: 0x06b6d4, // Holographic cyan
-          roughness: 0.2,
-          metalness: 0.5,
-          emissive: 0x0e7490,
-          emissiveIntensity: 0.4,
-        });
-      } else {
-        satGeo = new THREE.OctahedronGeometry(0.65, 0);
-        satMat = new THREE.MeshStandardMaterial({
-          color: 0x10b981, // Neon mint
-          roughness: 0.2,
-          metalness: 0.5,
-          emissive: 0x047857,
-          emissiveIntensity: 0.4,
-        });
+      if (peer.isSpeaking) {
+        satColor = 0x10b981; // Mint / Emerald active speaker
+        emissiveColor = 0x059669;
+      } else if (isConnecting) {
+        satColor = 0xf59e0b; // Amber negotiating
+        emissiveColor = 0xb45309;
+      } else if (!isConnected) {
+        satColor = 0x64748b; // Muted slate disconnected
+        emissiveColor = 0x334155;
       }
 
+      const satMat = new THREE.MeshStandardMaterial({
+        color: satColor,
+        roughness: 0.2,
+        metalness: 0.5,
+        emissive: emissiveColor,
+        emissiveIntensity: peer.isSpeaking ? 0.9 : 0.45,
+      });
+
       const satMesh = new THREE.Mesh(satGeo, satMat);
-      satMesh.userData = { room };
+      satMesh.userData = { peer };
       scene.add(satMesh);
+
+      // Connection Link Line between Central and Peer
+      const linePositions = new Float32Array(6); // [0,0,0, px,py,pz]
+      const lineGeo = new THREE.BufferGeometry();
+      lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+
+      const lineMat = new THREE.LineBasicMaterial({
+        color: isConnected ? 0x22d3ee : isConnecting ? 0xfbbf24 : 0x475569,
+        transparent: true,
+        opacity: isConnected ? 0.4 : 0.2,
+      });
+      const lineMesh = new THREE.Line(lineGeo, lineMat);
+      scene.add(lineMesh);
 
       satelliteMeshes.push({
         mesh: satMesh,
-        room,
-        baseScale: 1,
+        peer,
         angle,
         radius,
-        speed,
-        yOffset: Math.sin(idx * 1.5) * 0.8,
+        yOffset: Math.sin(idx * 1.5) * 0.7,
+        line: lineMesh,
+        lineGeo,
       });
 
-      // Initialize traveling data packets
-      for (let p = 0; p < 4; p++) {
-        const pMesh = new THREE.Mesh(packetGeo, packetMat.clone());
-        scene.add(pMesh);
-        packetMeshes.push({
-          mesh: pMesh,
-          targetIdx: idx,
-          progress: p * 0.25,
-          speed: 0.008 + (p % 2) * 0.003,
-        });
+      // Initialize traveling data packets for connected peers
+      if (isConnected) {
+        for (let p = 0; p < 3; p++) {
+          const pMesh = new THREE.Mesh(packetGeo, packetMat.clone());
+          scene.add(pMesh);
+          packetMeshes.push({
+            mesh: pMesh,
+            targetIdx: idx,
+            progress: p * 0.33,
+            speed: 0.008 + (p % 2) * 0.004,
+          });
+        }
       }
     });
 
     // 5. Star Dust Particles Background
     const starGeo = new THREE.BufferGeometry();
-    const starCount = 350;
+    const starCount = 300;
     const starPos = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount * 3; i += 3) {
       starPos[i] = (Math.random() - 0.5) * 35;
@@ -214,16 +284,16 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
       color: 0x94a3b8,
       size: 0.06,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.4,
     });
     const starPoints = new THREE.Points(starGeo, starMat);
     scene.add(starPoints);
 
-    // 6. Interactive Raycaster for Mouse Hover & Click
+    // 6. Interactive Raycaster for Hover & Selection
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2(-999, -999);
     let targetCameraX = 0;
-    let targetCameraY = 2.5;
+    let targetCameraY = 2;
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = mount.getBoundingClientRect();
@@ -231,8 +301,8 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       mouse.set(x, y);
 
-      targetCameraX = x * 1.5;
-      targetCameraY = 2.5 + y * 0.8;
+      targetCameraX = x * 1.4;
+      targetCameraY = 2 + y * 0.7;
     };
 
     const handleClick = () => {
@@ -242,9 +312,10 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
 
       if (intersects.length > 0) {
         const clicked = intersects[0].object;
-        const roomData = clicked.userData.room as RoomNode;
-        if (roomData && onSelectRoom) {
-          onSelectRoom(roomData.code);
+        const peerData = clicked.userData.peer as PeerNodeData;
+        if (peerData) {
+          if (onSelectPeer) onSelectPeer(peerData.peerId);
+          if (onSelectRoom) onSelectRoom(peerData.peerId);
         }
       }
     };
@@ -254,7 +325,7 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
 
     // 7. Animation Loop
     let animId: number;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -265,26 +336,37 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
       camera.position.y += (targetCameraY - camera.position.y) * 0.04;
       camera.lookAt(0, 0, 0);
 
-      // Core gentle pulsing & rotation
-      centralGroup.rotation.y = elapsed * 0.2;
-      coreWireMesh.rotation.x = elapsed * 0.3;
-      coreWireMesh.rotation.z = elapsed * 0.15;
-      const pulse = Math.sin(elapsed * 2) * 0.04 + 1;
-      atmosphereMesh.scale.set(pulse, pulse, pulse);
+      // Core rotations & acoustic breathing
+      centralGroup.rotation.y = elapsed * 0.18;
+      cageMesh.rotation.x = elapsed * 0.25;
+      cageMesh.rotation.z = elapsed * 0.12;
 
-      orbitRing1.rotation.z = elapsed * 0.08;
+      const acousticPulse = localUser.isSpeaking
+        ? 1.08 + Math.sin(elapsed * 9) * 0.08
+        : 1 + Math.sin(elapsed * 2) * 0.03;
+      acousticMesh.scale.set(acousticPulse, acousticPulse, acousticPulse);
+
+      orbitRing1.rotation.z = elapsed * 0.07;
       orbitRing2.rotation.z = -elapsed * 0.05;
 
-      // Update Satellites along orbital paths
+      // Update Satellites along orbital paths & dynamic link lines
       satelliteMeshes.forEach((sat) => {
-        const currentAngle = sat.angle + elapsed * 0.22;
+        const currentAngle = sat.angle + elapsed * 0.2;
         const x = Math.cos(currentAngle) * sat.radius;
-        const z = Math.sin(currentAngle) * (sat.radius * 0.7);
-        const y = Math.sin(currentAngle * 2) * 0.6 + sat.yOffset;
+        const z = Math.sin(currentAngle) * (sat.radius * 0.75);
+        const y = Math.sin(currentAngle * 2) * 0.5 + sat.yOffset;
 
         sat.mesh.position.set(x, y, z);
-        sat.mesh.rotation.x = elapsed * 0.5;
-        sat.mesh.rotation.y = elapsed * 0.8;
+        sat.mesh.rotation.x = elapsed * 0.4;
+        sat.mesh.rotation.y = elapsed * 0.7;
+
+        // Update connection line geometry vertices [0,0,0] to [x,y,z]
+        const posAttr = sat.lineGeo.getAttribute('position') as THREE.BufferAttribute;
+        if (posAttr) {
+          posAttr.setXYZ(0, 0, 0, 0);
+          posAttr.setXYZ(1, x, y, z);
+          posAttr.needsUpdate = true;
+        }
       });
 
       // Update traveling data packets
@@ -294,37 +376,36 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
 
         const targetSat = satelliteMeshes[packet.targetIdx];
         if (targetSat) {
-          const startX = 0, startY = 0, startZ = 0;
           const endX = targetSat.mesh.position.x;
           const endY = targetSat.mesh.position.y;
           const endZ = targetSat.mesh.position.z;
 
           packet.mesh.position.set(
-            startX + (endX - startX) * packet.progress,
-            startY + (endY - startY) * packet.progress,
-            startZ + (endZ - startZ) * packet.progress
+            endX * packet.progress,
+            endY * packet.progress,
+            endZ * packet.progress
           );
         }
       });
 
-      // Raycasting for hover state
+      // Raycast for hover state
       raycaster.setFromCamera(mouse, camera);
       const meshes = satelliteMeshes.map((s) => s.mesh);
       const intersects = raycaster.intersectObjects(meshes);
 
       if (intersects.length > 0) {
         const hovered = intersects[0].object as THREE.Mesh;
-        const roomData = hovered.userData.room as RoomNode;
-        hovered.scale.set(1.25, 1.25, 1.25);
+        const peerData = hovered.userData.peer as PeerNodeData;
+        hovered.scale.set(1.22, 1.22, 1.22);
         document.body.style.cursor = 'pointer';
 
-        if (!hoveredNode || hoveredNode.code !== roomData.code) {
-          setHoveredNode({ name: roomData.name, type: roomData.type, code: roomData.code });
+        if (!hoveredPeer || hoveredPeer.peerId !== peerData.peerId) {
+          setHoveredPeer(peerData);
         }
       } else {
         satelliteMeshes.forEach((s) => s.mesh.scale.set(1, 1, 1));
         document.body.style.cursor = 'default';
-        if (hoveredNode) setHoveredNode(null);
+        if (hoveredPeer) setHoveredPeer(null);
       }
 
       renderer.render(scene, camera);
@@ -348,56 +429,140 @@ export default function NetworkTopology3D({ rooms = [], onSelectRoom }: NetworkT
       mount.removeEventListener('click', handleClick);
       document.body.style.cursor = 'default';
 
-      if (renderer.domElement && mount.contains(renderer.domElement)) {
+      if (renderer && renderer.domElement && mount.contains(renderer.domElement)) {
         mount.removeChild(renderer.domElement);
       }
-      renderer.dispose();
+      if (renderer) renderer.dispose();
+      coreGeo.dispose();
+      coreMat.dispose();
+      acousticGeo.dispose();
+      acousticMat.dispose();
+      cageGeo.dispose();
+      cageMat.dispose();
+      orbitRingGeo1.dispose();
+      orbitRingMat1.dispose();
+      orbitRingGeo2.dispose();
+      orbitRingMat2.dispose();
+      packetGeo.dispose();
+      packetMat.dispose();
+      starGeo.dispose();
+      starMat.dispose();
+      satelliteMeshes.forEach((s) => {
+        s.mesh.geometry.dispose();
+        if (Array.isArray(s.mesh.material)) s.mesh.material.forEach((m) => m.dispose());
+        else s.mesh.material.dispose();
+        s.lineGeo.dispose();
+        if (Array.isArray(s.line.material)) s.line.material.forEach((m) => m.dispose());
+        else s.line.material.dispose();
+      });
     };
-  }, [rooms, onSelectRoom]);
+  }, [effectivePeers, localUser, onSelectPeer, onSelectRoom, canRender3D, renderError]);
 
   return (
-    <div className="relative w-full h-[320px] rounded-3xl overflow-hidden bg-gradient-to-b from-[#0b1021]/90 via-[#070b16]/95 to-[#030611] border border-cyan-500/20 shadow-[0_15px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
-      {/* 3D Canvas Mount */}
-      <div ref={mountRef} className="absolute inset-0 w-full h-full" />
+    <div
+      className={`relative w-full h-[320px] rounded-3xl overflow-hidden bg-gradient-to-b from-[#0b1021]/95 via-[#070b16]/95 to-[#030611] border border-cyan-500/25 shadow-[0_15px_45px_rgba(0,0,0,0.6)] backdrop-blur-2xl select-none ${className}`}
+    >
+      {/* 3D Canvas Mount or 2D Fallback */}
+      {!canRender3D || renderError ? (
+        <WebGLCanvasFallback
+          title="Live Peer-to-Peer Mesh Topology"
+          description={`${effectivePeers.length} active node${effectivePeers.length === 1 ? '' : 's'} connected via WebRTC.`}
+          showBadge
+        />
+      ) : (
+        <div ref={mountRef} className="absolute inset-0 w-full h-full" />
+      )}
 
-      {/* Modern, Human-Made Status Badges */}
-      <div className="absolute top-4 left-5 flex items-center gap-3 pointer-events-none">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-emerald-500/30 backdrop-blur-md shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]" />
-          <span className="text-xs font-semibold text-slate-200">
-            Sovereign Peer Core
+      {/* Top Left: Local Peer Node Status Badge */}
+      <div className="absolute top-4 left-5 flex items-center gap-2.5 pointer-events-none z-10">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-white/10 backdrop-blur-md shadow-md">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              localUser.isSpeaking
+                ? 'bg-emerald-400 animate-ping shadow-[0_0_10px_#10b981]'
+                : 'bg-cyan-400 animate-pulse'
+            }`}
+          />
+          <span className="text-xs font-semibold text-white tracking-tight">
+            {localUser.displayName || 'You (Local Node)'}
           </span>
-          <span className="text-[10px] text-emerald-400 font-mono">100% E2EE</span>
+          <span className="text-[10px] text-cyan-300 font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30">
+            {localUser.isSpeaking ? 'Speaking' : localUser.isMuted ? 'Muted' : 'Mic Active'}
+          </span>
         </div>
       </div>
 
-      <div className="absolute top-4 right-5 flex items-center gap-2 pointer-events-none">
-        <span className="text-xs font-medium text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-3 py-1 rounded-full backdrop-blur-md shadow-sm flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          <span>{rooms.length > 0 ? rooms.length : 3} Active Orbiting Channels</span>
+      {/* Top Right: Real Connected Peer Counter */}
+      <div className="absolute top-4 right-5 flex items-center gap-2 pointer-events-none z-10">
+        <span className="text-xs font-medium text-cyan-300 bg-cyan-950/70 border border-cyan-500/30 px-3.5 py-1.5 rounded-full backdrop-blur-md shadow-md flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5 text-cyan-400" />
+          <span>
+            {effectivePeers.length} {effectivePeers.length === 1 ? 'Peer' : 'Peers'} in Mesh
+          </span>
         </span>
       </div>
 
-      {/* Hover Card / Action Pill */}
-      {hoveredNode && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 px-5 py-2 rounded-2xl bg-slate-900/95 border border-cyan-400/50 text-xs text-white shadow-[0_10px_30px_rgba(6,182,212,0.4)] pointer-events-none animate-fade-in flex items-center gap-3 backdrop-blur-xl">
-          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-          <div>
-            <span className="text-slate-400 mr-1.5">Channel:</span>
-            <strong className="text-cyan-300 font-semibold">{hoveredNode.name}</strong>
-            <span className="text-[10px] text-emerald-400 ml-2 font-mono">⚡ &lt; 20ms P2P</span>
+      {/* Hover Card / Interactive Peer Inspector */}
+      {hoveredPeer && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl bg-slate-900/95 border border-cyan-400/50 text-xs text-white shadow-[0_10px_35px_rgba(6,182,212,0.45)] pointer-events-none animate-fade-in flex items-center gap-4 backdrop-blur-xl z-20">
+          <div className="relative">
+            <span
+              className={`w-3 h-3 rounded-full block ${
+                hoveredPeer.connectionState === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}
+            />
+            {hoveredPeer.isSpeaking && (
+              <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping" />
+            )}
           </div>
-          <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-md text-[10px] font-mono">
-            Click to Join
-          </span>
+
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <strong className="text-cyan-300 font-semibold text-sm">
+                {hoveredPeer.displayName || `Peer #${hoveredPeer.peerId.slice(0, 6)}`}
+              </strong>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-neutral-300 uppercase">
+                {hoveredPeer.connectionState}
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 flex items-center gap-2.5 font-mono flex-wrap">
+              <span>RTT: {typeof hoveredPeer.rtt === 'number' && hoveredPeer.rtt > 0 ? `${hoveredPeer.rtt}ms` : 'Measuring...'}</span>
+              <span>•</span>
+              <span className="text-cyan-300">{hoveredPeer.connectionPath || 'Negotiating'}</span>
+              {hoveredPeer.candidateType && hoveredPeer.candidateType !== 'unknown' && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-neutral-400">
+                  Candidate: {hoveredPeer.candidateType}
+                </span>
+              )}
+              {hoveredPeer.isSpeaking && (
+                <>
+                  <span>•</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <Radio className="w-3 h-3 animate-pulse" /> Speaking
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Bottom Subtitle Guide */}
-      {!hoveredNode && (
-        <div className="absolute bottom-3 left-5 text-[11px] text-slate-400/80 pointer-events-none flex items-center gap-2">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-violet-400"></span>
-          <span>Interactive P2P Mesh Topology • Hover over nodes to inspect or click to connect</span>
+      {!hoveredPeer && (
+        <div className="absolute bottom-3 left-5 right-5 text-[11px] text-slate-400/80 pointer-events-none flex items-center justify-between z-10">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span>
+              {effectivePeers.length === 0
+                ? 'Awaiting peer connections • Share room invite code to join mesh'
+                : '3D WebRTC DataChannel Mesh • Real-time RTT telemetry & DTLS-SRTP transport'}
+            </span>
+          </div>
+          <div className="hidden sm:flex items-center gap-1 font-mono text-[10px] text-neutral-500">
+            <span>Vanilla Three.js</span>
+            <span>•</span>
+            <span>Interactive Raycast</span>
+          </div>
         </div>
       )}
     </div>

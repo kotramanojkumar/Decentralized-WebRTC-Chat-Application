@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X, FileText, ShieldCheck } from 'lucide-react';
 
 interface TermsPrivacyModalProps {
   isOpen: boolean;
@@ -65,9 +66,7 @@ export default function TermsPrivacyModal({
               className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition text-neutral-500 hover:text-neutral-900 dark:hover:text-white cursor-pointer ml-2"
               title="Close modal"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -76,24 +75,26 @@ export default function TermsPrivacyModal({
             <button
               type="button"
               onClick={() => setActiveTab('terms')}
-              className={`flex-1 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 activeTab === 'terms'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-300'
               }`}
             >
-              📜 Terms of Service
+              <FileText className="w-4 h-4 text-cyan-400" />
+              <span>Terms of Service</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('privacy')}
-              className={`flex-1 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 activeTab === 'privacy'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-300'
               }`}
             >
-              🛡️ Privacy Policy
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Privacy Policy</span>
             </button>
           </div>
 

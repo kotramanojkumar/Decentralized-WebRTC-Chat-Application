@@ -7,6 +7,12 @@
   --font-mono: "SF Mono", "Fira Code", "JetBrains Mono", "Menlo", monospace;
   --color-glass: rgba(255, 255, 255, 0.05);
   --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-futuristic-bg: #060911;
+  --color-futuristic-surface: #0a0f1d;
+  --color-cyan-glow: #00f0ff;
+  --color-electric-blue: #3b82f6;
+  --color-neon-violet: #8b5cf6;
+  --color-emerald-active: #10b981;
 }
 
 * {
@@ -81,6 +87,18 @@ html:not(.dark) body {
 
 .glow-violet {
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), 0 0 60px rgba(139, 92, 246, 0.1);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), 0 0 60px rgba(0, 240, 255, 0.12);
+}
+
+.border-glass-specular {
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+.border-glass-cyan {
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
 }
 
 /* ========================================================
@@ -240,3 +258,14 @@ html.dark .liquid-glass-input {
   border-color: rgba(59, 130, 246, 0.85) !important;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.3) !important;
 }
+
+/* Accessibility: Respect OS-level reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

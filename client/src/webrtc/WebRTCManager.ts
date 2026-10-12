@@ -258,41 +258,170 @@ export class WebRTCManager {
     return this.cryptoManagers;
   }
 
+  public getCryptoManager(peerId: string): CryptoManager | undefined {
+    return this.cryptoManagers.get(peerId);
+  }
+
+  public async getPeerSafetyNumber(peerId: string): Promise<string | null> {
+    const crypto = this.cryptoManagers.get(peerId);
+    if (!crypto) return null;
+    return await crypto.getSafetyNumber();
+  }
+
+  public getPeerRemotePublicKey(peerId: string): string | null {
+    const crypto = this.cryptoManagers.get(peerId);
+    if (!crypto) return null;
+    return crypto.getRemotePublicKey();
+  }
+
+  private isPrivateOrLocalAddress(addr?: string | null): boolean {
+    if (!addr) return false;
+    const cleanAddr = addr.replace(/^\[|\]$/g, '').trim();
+    // RFC 1918 Private IPv4
+    if (/^10\./.test(cleanAddr)) return true;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(cleanAddr)) return true;
+    if (/^192\.168\./.test(cleanAddr)) return true;
+    // Loopback IPv4 & IPv6
+    if (/^127\./.test(cleanAddr) || cleanAddr === '::1') return true;
+    // IPv6 Link-Local
+    if (/^fe80:/i.test(cleanAddr)) return true;
+    // mDNS local name (e.g. uuid.local)
+    if (cleanAddr.endsWith('.local')) return true;
+    return false;
+  }
+
+  private isLoopbackAddress(addr?: string | null): boolean {
+    if (!addr) return false;
+    const cleanAddr = addr.replace(/^\[|\]$/g, '').trim();
+    return /^127\./.test(cleanAddr) || cleanAddr === '::1';
+  }
+
   public async getTelemetry(): Promise<Array<PeerTelemetry>> {
     const telemetryList: Array<PeerTelemetry> = [];
 
     for (const [peerId, pc] of Array.from(this.peerConnections.entries())) {
-      let rtt = 0;
-      let candidateType = 'Direct (srflx)';
+      let rtt: number | null = null;
+      let rawCandidateType = 'unknown';
+      let connectionPath = pc.connectionState === 'connected' ? 'Connected (Stats pending)' : 'Negotiating';
+      let selectedPairConfirmed = false;
       let bytesSent = 0;
       let bytesReceived = 0;
-      let packetLoss = 0;
+      let packetLoss: number | null = null;
+      let packetsLostTotal = 0;
+      let packetsReceivedTotal = 0;
 
       try {
         const stats = await pc.getStats();
+        let selectedCandidatePair: any = null;
+
+        // 1. Browser compatibility check: inspect transport report first for selectedCandidatePairId (Firefox, Chrome standard)
         stats.forEach((report) => {
-          if (report.type === 'candidate-pair' && (report.nominated || report.selected || report.state === 'succeeded')) {
-            rtt = Math.round((report.currentRoundTripTime || 0) * 1000);
-            bytesSent = report.bytesSent || 0;
-            bytesReceived = report.bytesReceived || 0;
-          }
-          if (report.type === 'remote-candidate') {
-            const rawType = report.candidateType;
-            if (rawType === 'host') candidateType = 'LAN P2P (host)';
-            else if (rawType === 'srflx') candidateType = 'Direct STUN (srflx)';
-            else if (rawType === 'relay') candidateType = 'Relayed (TURN)';
-            else candidateType = rawType || 'Direct';
+          if (report.type === 'transport' && report.selectedCandidatePairId) {
+            const pair = stats.get(report.selectedCandidatePairId);
+            if (pair) {
+              selectedCandidatePair = pair;
+            }
           }
           if (report.type === 'inbound-rtp') {
-            packetLoss = report.packetsLost || 0;
+            if (typeof report.packetsLost === 'number') {
+              packetsLostTotal += report.packetsLost;
+            }
+            if (typeof report.packetsReceived === 'number') {
+              packetsReceivedTotal += report.packetsReceived;
+            }
           }
         });
-      } catch (e) {}
+
+        // 2. Fallback search across candidate-pair reports if not found from transport
+        if (!selectedCandidatePair) {
+          stats.forEach((report) => {
+            if (report.type === 'candidate-pair') {
+              if (report.selected === true) {
+                selectedCandidatePair = report;
+              } else if (report.nominated === true && report.state === 'succeeded') {
+                selectedCandidatePair = report;
+              } else if (!selectedCandidatePair && report.state === 'succeeded') {
+                selectedCandidatePair = report;
+              }
+            }
+          });
+        }
+
+        // 3. Extract telemetry from the identified candidate pair
+        if (selectedCandidatePair) {
+          selectedPairConfirmed = Boolean(
+            selectedCandidatePair.selected === true ||
+            (selectedCandidatePair.nominated === true && selectedCandidatePair.state === 'succeeded')
+          );
+
+          // Handle browser RTT metric differences
+          if (typeof selectedCandidatePair.currentRoundTripTime === 'number' && selectedCandidatePair.currentRoundTripTime > 0) {
+            rtt = Math.round(selectedCandidatePair.currentRoundTripTime * 1000);
+          } else if (typeof selectedCandidatePair.roundTripTime === 'number' && selectedCandidatePair.roundTripTime > 0) {
+            rtt = Math.round(selectedCandidatePair.roundTripTime * 1000);
+          } else if (
+            typeof selectedCandidatePair.totalRoundTripTime === 'number' &&
+            typeof selectedCandidatePair.responsesReceived === 'number' &&
+            selectedCandidatePair.responsesReceived > 0
+          ) {
+            rtt = Math.round((selectedCandidatePair.totalRoundTripTime / selectedCandidatePair.responsesReceived) * 1000);
+          }
+
+          bytesSent = selectedCandidatePair.bytesSent || 0;
+          bytesReceived = selectedCandidatePair.bytesReceived || 0;
+
+          // 4. Resolve candidate type and connection path with strict LAN criteria
+          let remoteCandidate: any = null;
+          let localCandidate: any = null;
+
+          if (selectedCandidatePair.remoteCandidateId) {
+            remoteCandidate = stats.get(selectedCandidatePair.remoteCandidateId);
+          }
+          if (selectedCandidatePair.localCandidateId) {
+            localCandidate = stats.get(selectedCandidatePair.localCandidateId);
+          }
+
+          if (remoteCandidate) {
+            rawCandidateType = remoteCandidate.candidateType || 'unknown';
+            const remoteAddr = remoteCandidate.address || remoteCandidate.ip || '';
+            const localAddr = localCandidate?.address || localCandidate?.ip || '';
+
+            if (rawCandidateType === 'host') {
+              if (this.isLoopbackAddress(remoteAddr) || this.isLoopbackAddress(localAddr)) {
+                connectionPath = 'Direct (Local Loopback)';
+              } else if (this.isPrivateOrLocalAddress(remoteAddr) && this.isPrivateOrLocalAddress(localAddr)) {
+                connectionPath = 'Direct (Private LAN)';
+              } else {
+                connectionPath = 'Direct (Host Candidate)';
+              }
+            } else if (rawCandidateType === 'srflx') {
+              connectionPath = 'Direct P2P (STUN Reflexive)';
+            } else if (rawCandidateType === 'relay') {
+              connectionPath = 'Relayed (TURN Server)';
+            } else if (rawCandidateType === 'prflx') {
+              connectionPath = 'Direct P2P (Peer Reflexive)';
+            } else {
+              connectionPath = selectedPairConfirmed ? 'Connected (Selected Pair)' : 'Connected';
+            }
+          } else if (selectedPairConfirmed) {
+            connectionPath = 'Connected (Candidate Details Pending)';
+          }
+        }
+
+        // Calculate packet loss only when measurable packets exist
+        if (packetsReceivedTotal + packetsLostTotal > 0) {
+          packetLoss = Math.round((packetsLostTotal / (packetsReceivedTotal + packetsLostTotal)) * 100);
+        }
+      } catch (e) {
+        console.warn('Failed to retrieve WebRTC getStats telemetry:', e);
+      }
 
       telemetryList.push({
         peerId,
         rtt,
-        candidateType,
+        candidateType: rawCandidateType,
+        connectionPath,
+        selectedPairConfirmed,
         bytesSent,
         bytesReceived,
         packetLoss,
@@ -306,11 +435,13 @@ export class WebRTCManager {
 
 export interface PeerTelemetry {
   peerId: string;
-  rtt: number;
+  rtt: number | null;
   candidateType: string;
+  connectionPath: string;
+  selectedPairConfirmed: boolean;
   bytesSent: number;
   bytesReceived: number;
-  packetLoss: number;
+  packetLoss: number | null;
   connectionState: string;
 }
 

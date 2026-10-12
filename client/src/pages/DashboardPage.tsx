@@ -1,10 +1,44 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Share2,
+  ShieldCheck,
+  Users,
+  Settings,
+  LogOut,
+  Radio,
+  Video,
+  Lock,
+  Unlock,
+  PhoneCall,
+  PhoneOff,
+  Calendar,
+  Clock,
+  CalendarCheck,
+  Plus,
+  Trash2,
+  Edit3,
+  Copy,
+  Check,
+  CheckCircle2,
+  Hash,
+  Clipboard,
+  AlertCircle,
+  FileText,
+  Boxes,
+  LayoutGrid,
+  KeyRound,
+  Wifi,
+  WifiOff,
+  FlaskConical,
+} from 'lucide-react';
 import { API_URL } from '../config';
 import ThemeToggle from '../components/ThemeToggle';
 import NamaskarGreeting from '../components/NamaskarGreeting';
 import QuantumEntropyShield from '../components/QuantumEntropyShield';
+import NetworkTopology3D from '../components/NetworkTopology3D';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface Task {
   id: string;
@@ -43,12 +77,118 @@ export default function DashboardPage() {
 
   // My Rooms
   const [myRooms, setMyRooms] = useState<any[]>([]);
+  const [show3DRoomMesh, setShow3DRoomMesh] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [signalingStatus, setSignalingStatus] = useState<'checking' | 'healthy' | 'unreachable'>('checking');
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3200);
+  };
+
+  // Online / Offline Connectivity listener
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Measured Signaling Server Health Check via /api/health probe
+  useEffect(() => {
+    let isMounted = true;
+    const probeSignaling = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        if (isMounted) setSignalingStatus('unreachable');
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (isMounted) {
+            setSignalingStatus(data.status === 'healthy' ? 'healthy' : 'unreachable');
+          }
+        } else {
+          if (isMounted) setSignalingStatus('unreachable');
+        }
+      } catch {
+        if (isMounted) setSignalingStatus('unreachable');
+      }
+    };
+
+    probeSignaling();
+    const interval = setInterval(probeSignaling, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isOnline]);
+
+  // Fast Clipboard Invite Paste with robust URL parsing & permission handling
+  const handlePasteInvite = async () => {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard || !navigator.clipboard.readText) {
+        showToast('Clipboard access unavailable in this browser. Please paste code manually.');
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        showToast('Clipboard is empty.');
+        return;
+      }
+      let code = text.trim();
+      const match = code.match(/room\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        code = match[1];
+      } else {
+        // Strip trailing query parameters, hash anchors, and trailing slashes
+        code = code.split('?')[0].split('#')[0].replace(/\/+$/, '').trim();
+      }
+      if (code) {
+        setJoinRoomId(code);
+        setRequiresPassword(false);
+        setJoinError('');
+        showToast(`Invite code parsed: ${code}`);
+      }
+    } catch {
+      showToast('Clipboard permission denied. Please paste code manually.');
+    }
+  };
+
+  // Copy Room Invite Link with resilient fallback
+  const handleCopyRoomInvite = async (inviteCode: string, type: string) => {
+    const url = `${window.location.origin}/room/${inviteCode}?type=${type}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedCode(inviteCode);
+      showToast(`Room invite link copied: #${inviteCode}`);
+      setTimeout(() => setCopiedCode(null), 2500);
+    } catch {
+      showToast(`Could not copy link automatically. Room code: #${inviteCode}`);
+    }
   };
 
   // Notes sync
@@ -70,18 +210,25 @@ export default function DashboardPage() {
     localStorage.setItem('dashboardTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Fetch rooms
+  // Fetch rooms with loading state
   useEffect(() => {
     const fetchMyRooms = async () => {
       const userId = localStorage.getItem('userId');
-      if (!userId) return;
+      if (!userId) {
+        setIsLoadingRooms(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/rooms/my-rooms/${userId}`);
         if (res.ok) {
           const data = await res.json();
           setMyRooms(data.rooms || []);
         }
-      } catch (e) {}
+      } catch (e) {
+        // preserve existing list on transient network failure
+      } finally {
+        setIsLoadingRooms(false);
+      }
     };
     fetchMyRooms();
     const interval = setInterval(fetchMyRooms, 15000);
@@ -114,13 +261,13 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error(error);
-      showToast('Failed to create room');
+      showToast('Failed to create room. Please check your signaling connection.');
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Close room - Smoothly closed without disruptive browser popups
+  // Close room - Smoothly closed with explicit authorization and error feedback
   const closeRoomFromDashboard = async (inviteCode: string) => {
     try {
       const res = await fetch(`${API_URL}/rooms/close`, {
@@ -128,14 +275,15 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteCode, userId: localStorage.getItem('userId') })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setMyRooms(prev => prev.filter(r => r.secureInviteCode !== inviteCode));
         showToast('Room ended successfully.');
       } else {
-        showToast('Unable to end room at this time.');
+        showToast(data.error || 'Unable to end room at this time.');
       }
     } catch (e) {
-      showToast('Failed to close room');
+      showToast('Failed to close room. Check network connection.');
     }
   };
 
@@ -363,33 +511,45 @@ export default function DashboardPage() {
                 navigator.clipboard.writeText(`Join me on P2PConnect: ${url}`);
                 showToast("Invite link copied to clipboard!");
               }}
-              className="px-4 py-2 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:scale-105 shadow-md transition active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:scale-105 shadow-md transition active:scale-95 cursor-pointer"
             >
-              Share Invite
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share Invite</span>
             </button>
 
             {localStorage.getItem('email') === 'kmk.kmk0789@gmail.com' && (
               <button
                 onClick={() => navigate('/admin')}
-                className="px-4 py-2 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition border border-emerald-300 dark:border-emerald-500/30 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition border border-emerald-300 dark:border-emerald-500/30 active:scale-95 cursor-pointer"
               >
-                Admin
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Admin</span>
               </button>
             )}
 
             <button
               onClick={() => navigate('/contacts')}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 dark:text-neutral-200 liquid-glass-btn transition active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 dark:text-neutral-200 liquid-glass-btn transition active:scale-95 cursor-pointer"
             >
-              Contacts
+              <Users className="w-3.5 h-3.5" />
+              <span>Contacts</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/research')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-cyan-600 dark:text-cyan-300 liquid-glass-btn border-cyan-500/30 hover:bg-cyan-500/10 transition active:scale-95 cursor-pointer shadow-sm"
+              title="Open Adaptive P2P File Transfer Research Lab"
+            >
+              <FlaskConical className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Research Lab</span>
             </button>
 
             <button
               onClick={() => navigate('/settings')}
-              className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full liquid-glass-btn hover:scale-105 transition cursor-pointer"
+              className="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full liquid-glass-btn hover:scale-105 transition cursor-pointer"
               title="Profile & Settings"
             >
-              <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-tr from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold">
+              <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
                 {localStorage.getItem('avatarUrl') ? (
                   <img src={localStorage.getItem('avatarUrl')!} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -399,6 +559,7 @@ export default function DashboardPage() {
               <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 hidden sm:inline">
                 {localStorage.getItem('displayName') || localStorage.getItem('username') || 'Profile'}
               </span>
+              <Settings className="w-3 h-3 text-neutral-400" />
             </button>
 
             {/* Quantum Entropy & E2EE Shield (Novelty Feature) */}
@@ -413,9 +574,10 @@ export default function DashboardPage() {
                 sessionStorage.clear();
                 navigate('/login', { replace: true });
               }}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-300 liquid-glass-btn border-rose-400/30 hover:bg-rose-500/10 transition active:scale-95 cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-300 liquid-glass-btn border-rose-400/30 hover:bg-rose-500/10 transition active:scale-95 cursor-pointer shadow-sm"
             >
-              Logout
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
             </button>
           </div>
         </motion.header>
@@ -423,7 +585,7 @@ export default function DashboardPage() {
         {/* Main Organized 2-Column Dashboard Layout */}
         <div className="grid lg:grid-cols-12 gap-6">
           
-          {/* Left Column: Namaskar Greeting + Quick Scratchpad Notes */}
+          {/* Left Column: Namaskar Greeting + Quick Scratchpad Notes + Real Connectivity Card */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             
             {/* Indian Namaskar Welcome Avatar */}
@@ -434,14 +596,13 @@ export default function DashboardPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
-                    <img
-                      src="/assets/quick_notes_icon.png"
-                      alt="Quick Notes"
-                      className="w-8 h-8 object-contain rounded-xl drop-shadow-md inline-block shrink-0"
-                    />
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                      <FileText className="w-4 h-4" />
+                    </div>
                     <span>Quick Notes</span>
                   </h2>
-                  <span className="text-[10px] font-medium bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-white/10 px-2.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-medium bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-white/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                     Auto-saved
                   </span>
                 </div>
@@ -452,11 +613,75 @@ export default function DashboardPage() {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="Type temporary notes here..."
-                  className="w-full liquid-glass-input rounded-2xl p-3.5 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:outline-none resize-none min-h-[190px] font-sans"
+                  className="w-full liquid-glass-input rounded-2xl p-3.5 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:outline-none resize-none min-h-[170px] font-sans"
                 />
               </div>
               <div className="mt-3 text-[10px] text-neutral-400 dark:text-neutral-500 font-medium flex items-center gap-1.5">
-                <span>🔒</span> Saved locally in your browser
+                <Lock className="w-3 h-3 text-emerald-400 inline" />
+                <span>Saved locally in your browser</span>
+              </div>
+            </div>
+
+            {/* Mesh Signaling & Real Connectivity Card */}
+            <div className="liquid-glass-card p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+                  Signaling &amp; Network Health
+                </span>
+                <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+                  signalingStatus === 'healthy'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                    : signalingStatus === 'checking'
+                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+                    : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    signalingStatus === 'healthy'
+                      ? 'bg-emerald-400 animate-pulse'
+                      : signalingStatus === 'checking'
+                      ? 'bg-amber-400 animate-ping'
+                      : 'bg-rose-400'
+                  }`} />
+                  {signalingStatus === 'healthy' ? 'Signaling Live' : signalingStatus === 'checking' ? 'Probing...' : 'Signaling Offline'}
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400 pt-1">
+                <div className="flex justify-between items-center py-1 border-b border-neutral-200/50 dark:border-white/5">
+                  <span className="flex items-center gap-1.5">
+                    {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-400" /> : <WifiOff className="w-3.5 h-3.5 text-amber-400" />}
+                    Browser Network
+                  </span>
+                  <span className={`font-mono text-[11px] font-semibold ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {isOnline ? 'Online (LAN/WAN)' : 'Offline (No Connection)'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-neutral-200/50 dark:border-white/5">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    DataChannel Cipher Spec
+                  </span>
+                  <span className="font-mono text-[11px] text-neutral-800 dark:text-neutral-200" title="Configured payload encryption negotiated inside active rooms">
+                    AES-GCM-256 (in room)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-neutral-200/50 dark:border-white/5">
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-violet-400" />
+                    Key Exchange Spec
+                  </span>
+                  <span className="font-mono text-[11px] text-neutral-800 dark:text-neutral-200" title="Ephemeral key agreement initiated per peer connection">
+                    ECDH P-384 (ephemeral)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-emerald-400" />
+                    Active Created Rooms
+                  </span>
+                  <span className="font-mono text-[11px] text-cyan-400 font-bold">{myRooms.length} Active</span>
+                </div>
               </div>
             </div>
 
@@ -476,12 +701,13 @@ export default function DashboardPage() {
                 className="liquid-glass-card p-6 flex flex-col justify-between shadow-2xl"
               >
                 <div>
-                  <div className="mb-4 flex items-center">
-                    <img
-                      src="/assets/create_room_icon.png"
-                      alt="Create a Room"
-                      className="w-14 h-14 object-contain rounded-2xl drop-shadow-md hover:scale-105 transition-transform"
-                    />
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-md">
+                      <Video className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
+                      New Call
+                    </span>
                   </div>
                   <h2 className="text-base font-bold mb-1 text-neutral-900 dark:text-white">
                     Create a Room
@@ -495,45 +721,54 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setRoomType('p2p')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition ${
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         roomType === 'p2p'
                           ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm'
                           : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
                       }`}
                     >
-                      Direct Call (P2P)
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>Direct (P2P)</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setRoomType('group')}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition ${
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         roomType === 'group'
                           ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm'
                           : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
                       }`}
                     >
-                      Group Call
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Group Call</span>
                     </button>
                   </div>
 
                   <form onSubmit={handleCreateRoom} className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Custom Room Code (Optional)"
-                      value={customRoomId}
-                      onChange={e => setCustomRoomId(e.target.value)}
-                      className="w-full liquid-glass-input rounded-2xl px-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
-                    />
-                    <input
-                      type="password"
-                      placeholder="Room Password (Optional)"
-                      value={roomPassword}
-                      onChange={e => setRoomPassword(e.target.value)}
-                      className="w-full liquid-glass-input rounded-2xl px-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
-                    />
+                    <div className="relative">
+                      <Hash className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Custom Room Code (Optional)"
+                        value={customRoomId}
+                        onChange={e => setCustomRoomId(e.target.value)}
+                        className="w-full liquid-glass-input rounded-2xl pl-10 pr-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
+                      <input
+                        type="password"
+                        placeholder="Room Password (Optional)"
+                        value={roomPassword}
+                        onChange={e => setRoomPassword(e.target.value)}
+                        className="w-full liquid-glass-input rounded-2xl pl-10 pr-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
+                      />
+                    </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium block mb-1">
-                        Schedule Date & Time (Optional)
+                      <label className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium block mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3 inline" />
+                        Schedule Date &amp; Time (Optional)
                       </label>
                       <input
                         type="datetime-local"
@@ -545,9 +780,19 @@ export default function DashboardPage() {
                     <button
                       type="submit"
                       disabled={isCreating}
-                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-blue-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98]"
+                      className="w-full bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-blue-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98] flex items-center justify-center gap-2"
                     >
-                      {isCreating ? 'Creating Room...' : 'Create Room Now'}
+                      {isCreating ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Creating Room...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Create Room Now</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 </div>
@@ -561,12 +806,13 @@ export default function DashboardPage() {
                 className="liquid-glass-card p-6 flex flex-col justify-between shadow-2xl"
               >
                 <div>
-                  <div className="mb-4 flex items-center">
-                    <img
-                      src="/assets/join_room_icon.png"
-                      alt="Join a Room"
-                      className="w-24 h-14 object-contain rounded-xl drop-shadow-md hover:scale-105 transition-transform"
-                    />
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-md">
+                      <PhoneCall className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                      Fast Join
+                    </span>
                   </div>
                   <h2 className="text-base font-bold mb-1 text-neutral-900 dark:text-white">
                     Join a Room
@@ -577,52 +823,78 @@ export default function DashboardPage() {
 
                   <form onSubmit={requiresPassword ? handleJoinRoom : handleCheckRoom} className="space-y-3">
                     {joinError && (
-                      <div className="p-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs">
-                        {joinError}
+                      <div className="p-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{joinError}</span>
                       </div>
                     )}
 
-                    <input
-                      type="text"
-                      placeholder="Paste Room Invite Code..."
-                      value={joinRoomId}
-                      onChange={e => {
-                        setJoinRoomId(e.target.value);
-                        setRequiresPassword(false);
-                        setJoinError('');
-                      }}
-                      className="w-full liquid-glass-input rounded-2xl px-4 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
-                    />
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                      <input
+                        type="text"
+                        placeholder="Paste Room Invite Code..."
+                        value={joinRoomId}
+                        onChange={e => {
+                          setJoinRoomId(e.target.value);
+                          setRequiresPassword(false);
+                          setJoinError('');
+                        }}
+                        className="w-full liquid-glass-input rounded-2xl pl-10 pr-20 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePasteInvite}
+                        className="absolute right-2 top-2 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-neutral-700 dark:text-neutral-200 text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                        title="Paste invite code from clipboard"
+                      >
+                        <Clipboard className="w-3 h-3" />
+                        <span>Paste</span>
+                      </button>
+                    </div>
 
                     {requiresPassword && (
-                      <input
-                        type="password"
-                        placeholder="Enter Room Password..."
-                        value={joinPassword}
-                        onChange={e => setJoinPassword(e.target.value)}
-                        required
-                        className="w-full liquid-glass-input rounded-2xl px-4 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
-                      />
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                        <input
+                          type="password"
+                          placeholder="Enter Room Password..."
+                          value={joinPassword}
+                          onChange={e => setJoinPassword(e.target.value)}
+                          required
+                          className="w-full liquid-glass-input rounded-2xl pl-10 pr-4 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
+                        />
+                      </div>
                     )}
 
                     <button
                       type="submit"
                       disabled={!joinRoomId.trim()}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-emerald-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98]"
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-emerald-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98] flex items-center justify-center gap-2"
                     >
-                      {requiresPassword ? 'Verify Password & Join' : 'Join Room Now'}
+                      <PhoneCall className="w-3.5 h-3.5" />
+                      <span>{requiresPassword ? 'Verify Password & Join' : 'Join Room Now'}</span>
                     </button>
                   </form>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/10 text-[11px] text-neutral-500 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-                    <img src="/assets/p2p_connect_icon.png" alt="P2P" className="w-4 h-4 object-contain inline-block" />
-                    <span>WebRTC Direct P2P Channel</span>
+                    <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>P2P Channel Transport</span>
                   </span>
-                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Online
+                  <span className={`font-semibold flex items-center gap-1.5 ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {isOnline ? (
+                      <>
+                        <Wifi className="w-3.5 h-3.5" />
+                        <span>Network Online</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3.5 h-3.5" />
+                        <span>Network Offline</span>
+                      </>
+                    )}
                   </span>
                 </div>
               </motion.div>
@@ -630,69 +902,177 @@ export default function DashboardPage() {
             </div>
 
             {/* Active Rooms Section */}
-            {myRooms.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="liquid-glass-card p-6 shadow-2xl"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Active Calls
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="liquid-glass-card p-6 shadow-2xl"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    myRooms.length > 0
+                      ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]'
+                      : 'bg-neutral-400 dark:bg-neutral-600'
+                  }`} />
+                  <h2 className="text-base font-bold text-neutral-900 dark:text-white">
+                    Active Calls &amp; Mesh Rooms
                   </h2>
-                  <span className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-500/30 px-3 py-1 rounded-full">
-                    {myRooms.length} Active
+                  <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+                    {isLoadingRooms ? 'Checking...' : `${myRooms.length} Active`}
                   </span>
                 </div>
 
+                {myRooms.length > 0 && (
+                  /* 3D Mesh Topology / Grid View Toggle */
+                  <div className="flex items-center gap-1 bg-neutral-200/80 dark:bg-white/5 p-1 rounded-full border border-neutral-300/50 dark:border-white/10 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setShow3DRoomMesh(false)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
+                        !show3DRoomMesh
+                          ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <LayoutGrid className="w-3 h-3" />
+                      <span>Grid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShow3DRoomMesh(true)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
+                        show3DRoomMesh
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                      title="View Active Rooms as 3D Interactive Topology"
+                    >
+                      <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>3D Mesh</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isLoadingRooms ? (
+                <div className="py-8 text-center text-xs text-neutral-500 flex flex-col items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                  <span>Querying active mesh rooms...</span>
+                </div>
+              ) : myRooms.length === 0 ? (
+                <div className="py-8 px-4 rounded-xl border border-dashed border-neutral-300 dark:border-white/10 text-center flex flex-col items-center justify-center gap-2">
+                  <Video className="w-7 h-7 text-neutral-400 dark:text-neutral-500" />
+                  <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+                    No active call rooms created yet
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-500 max-w-sm">
+                    Create a Direct P2P or Group call using the form above, or paste an invite code to join a call.
+                  </p>
+                </div>
+              ) : show3DRoomMesh ? (
+                /* 3D Interactive Mesh View */
+                <div className="h-80 rounded-2xl overflow-hidden border border-cyan-500/30 bg-slate-950/90 mb-2 relative shadow-inner">
+                  <ErrorBoundary isWebGL fallbackTitle="3D Room Mesh Offline" fallbackDescription="The WebGL scene encountered an error. 2D fallback mode active.">
+                    <NetworkTopology3D
+                      rooms={myRooms.map(r => ({
+                        id: r.id,
+                        name: `#${r.secureInviteCode}`,
+                        code: r.secureInviteCode,
+                        type: r.type,
+                      }))}
+                      onSelectRoom={code => {
+                        const targetRoom = myRooms.find(r => r.secureInviteCode === code);
+                        navigate(`/room/${code}?type=${targetRoom?.type || 'group'}`);
+                      }}
+                    />
+                  </ErrorBoundary>
+                </div>
+              ) : (
+                /* Standard Responsive Liquid-Glass Grid */
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {myRooms.map(room => (
                     <div
                       key={room.id}
-                      className="p-4 rounded-2xl liquid-glass border border-neutral-200/80 dark:border-white/10 hover:border-blue-400 dark:hover:border-blue-500/50 transition flex flex-col justify-between"
+                      className="p-4 rounded-2xl liquid-glass border border-neutral-200/80 dark:border-white/10 hover:border-cyan-500/50 transition flex flex-col justify-between group"
                     >
                       <div className="mb-3">
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
-                            {room.secureInviteCode}
+                          <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                            #{room.secureInviteCode}
                           </span>
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
                             {room.type === 'p2p' ? (
                               <>
-                                <img src="/assets/p2p_connect_icon.png" alt="P2P" className="w-3.5 h-3.5 object-contain inline-block" />
+                                <Radio className="w-3 h-3 text-cyan-400" />
                                 <span>Direct P2P</span>
                               </>
                             ) : (
-                              <span>Group Call</span>
+                              <>
+                                <Users className="w-3 h-3 text-indigo-400" />
+                                <span>Group Call</span>
+                              </>
                             )}
                           </span>
                         </div>
-                        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                          {room.hasPassword ? '🔒 Protected' : '🔓 Open Link'}
+
+                        <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 mt-2">
+                          <span className="flex items-center gap-1">
+                            {room.hasPassword ? (
+                              <>
+                                <Lock className="w-3 h-3 text-amber-400" />
+                                <span>Protected</span>
+                              </>
+                            ) : (
+                              <>
+                                <Unlock className="w-3 h-3 text-emerald-400" />
+                                <span>Open Link</span>
+                              </>
+                            )}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyRoomInvite(room.secureInviteCode, room.type)}
+                            className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition cursor-pointer"
+                            title="Copy Room Invite Link"
+                          >
+                            {copiedCode === room.secureInviteCode ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span className="text-emerald-400 font-medium">Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-2 border-t border-neutral-200/60 dark:border-white/5">
                         <button 
                           onClick={() => navigate(`/room/${room.secureInviteCode}?type=${room.type}`)}
-                          className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium text-xs transition cursor-pointer"
+                          className="flex-1 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-xl font-medium text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                         >
-                          Re-join
+                          <PhoneCall className="w-3 h-3" />
+                          <span>Re-join</span>
                         </button>
                         <button 
                           onClick={() => closeRoomFromDashboard(room.secureInviteCode)}
-                          className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-500/30 rounded-xl font-medium text-xs transition cursor-pointer"
-                          title="End Call"
+                          className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-500/30 rounded-xl font-medium text-xs transition cursor-pointer flex items-center justify-center gap-1"
+                          title="End Call for All"
                         >
-                          End
+                          <PhoneOff className="w-3 h-3" />
+                          <span>End</span>
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </motion.div>
-            )}
+              )}
+            </motion.div>
 
             {/* Tasks & Email Reminders */}
             <motion.div
@@ -702,23 +1082,27 @@ export default function DashboardPage() {
             >
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
-                    <img
-                      src="/assets/meeting_tasks_icon.png"
-                      alt="Meeting Tasks & Email Reminders"
-                      className="w-8 h-8 object-contain rounded-lg drop-shadow-md inline-block shrink-0"
-                    />
-                    <span>Meeting Tasks & Email Reminders</span>
-                  </h2>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                      <CalendarCheck className="w-4 h-4" />
+                    </div>
+                    <h2 className="text-base font-bold text-neutral-900 dark:text-white">
+                      Meeting Tasks &amp; Email Reminders
+                    </h2>
+                    <span className="text-xs font-mono text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-0.5 rounded-full">
+                      {tasks.filter(t => !t.done).length} Pending
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Schedule call reminders delivered to your email.
                   </p>
                 </div>
                 <button 
                   onClick={() => setIsAddingTask(!isAddingTask)} 
-                  className="text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-3.5 py-1.5 rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition cursor-pointer"
+                  className="flex items-center gap-1 text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-3.5 py-1.5 rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition cursor-pointer"
                 >
-                  {isAddingTask ? 'Cancel' : '+ Add Task'}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingTask ? 'Cancel' : 'Add Task'}</span>
                 </button>
               </div>
 
@@ -747,24 +1131,29 @@ export default function DashboardPage() {
                       rows={2}
                     />
                     <div className="grid grid-cols-2 gap-3">
-                      <input 
-                        type="date" 
-                        value={taskDate} 
-                        onChange={e => setTaskDate(e.target.value)} 
-                        className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
-                      />
-                      <input 
-                        type="time" 
-                        value={taskTime} 
-                        onChange={e => setTaskTime(e.target.value)} 
-                        className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
-                      />
+                      <div className="relative">
+                        <input 
+                          type="date" 
+                          value={taskDate} 
+                          onChange={e => setTaskDate(e.target.value)} 
+                          className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
+                        />
+                      </div>
+                      <div className="relative">
+                        <input 
+                          type="time" 
+                          value={taskTime} 
+                          onChange={e => setTaskTime(e.target.value)} 
+                          className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
+                        />
+                      </div>
                     </div>
                     <button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white py-2.5 rounded-xl text-xs font-semibold tracking-wide transition shadow-lg shadow-blue-500/25 cursor-pointer"
+                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white py-2.5 rounded-xl text-xs font-semibold tracking-wide transition shadow-lg shadow-blue-500/25 cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      Save Task & Schedule Reminder
+                      <CalendarCheck className="w-3.5 h-3.5" />
+                      <span>Save Task &amp; Schedule Reminder</span>
                     </button>
                   </motion.form>
                 )}
@@ -784,7 +1173,7 @@ export default function DashboardPage() {
                       type="checkbox" 
                       checked={task.done} 
                       onChange={() => toggleTask(task.id)}
-                      className="mt-1 w-4 h-4 text-blue-600 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer"
+                      className="mt-1 w-4 h-4 text-cyan-600 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer"
                     />
                     
                     {editingTaskId === task.id ? (
@@ -817,19 +1206,20 @@ export default function DashboardPage() {
                           </p>
                         )}
                         {(task.date || task.time) && (
-                          <div className="mt-2 text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/20 inline-block px-2.5 py-0.5 rounded-full">
-                            📅 {task.date} {task.time}
+                          <div className="mt-2 text-[10px] font-mono text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-500/20 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full">
+                            <Clock className="w-3 h-3" />
+                            <span>{task.date} {task.time}</span>
                           </div>
                         )}
                       </div>
                     )}
 
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setEditingTaskId(task.id)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 text-xs cursor-pointer">
-                        ✏️
+                      <button onClick={() => setEditingTaskId(task.id)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 text-xs cursor-pointer" title="Edit Task">
+                        <Edit3 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => deleteTask(task.id)} className="text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 text-xs cursor-pointer">
-                        🗑️
+                      <button onClick={() => deleteTask(task.id)} className="text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 text-xs cursor-pointer" title="Delete Task">
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

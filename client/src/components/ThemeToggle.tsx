@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Sun, Moon } from 'lucide-react';
 
 export default function ThemeToggle() {
   const [isDark, setIsDark] = useState(true);
@@ -36,12 +37,12 @@ export default function ThemeToggle() {
     >
       {isDark ? (
         <>
-          <span className="text-amber-400 text-sm">☀️</span>
+          <Sun className="w-3.5 h-3.5 text-amber-400" />
           <span className="hidden sm:inline">Light</span>
         </>
       ) : (
         <>
-          <span className="text-indigo-600 text-sm">🌙</span>
+          <Moon className="w-3.5 h-3.5 text-indigo-400" />
           <span className="hidden sm:inline">Dark</span>
         </>
       )}

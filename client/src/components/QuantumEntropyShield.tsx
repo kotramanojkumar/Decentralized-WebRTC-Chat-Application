@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Atom, X } from 'lucide-react';
 
 export default function QuantumEntropyShield() {
   const [isOpen, setIsOpen] = useState(false);
@@ -119,19 +120,20 @@ export default function QuantumEntropyShield() {
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-base shadow-md">
-                    ⚛️
+                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md">
+                    <Atom className="w-5 h-5 text-white animate-spin-slow" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold tracking-tight">Quantum Entropy & Mesh Shield</h3>
+                    <h3 className="text-base font-bold tracking-tight">Quantum Entropy &amp; Mesh Shield</h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Zero-Knowledge WebRTC Cryptographic Seeder</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition cursor-pointer text-xs"
+                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-neutral-500 hover:text-white transition cursor-pointer"
+                  title="Close Modal"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
