@@ -18,7 +18,11 @@ export default function SettingsPage() {
 
   // --- Profile State ---
   const [profile, setProfile] = useState({
-    displayName: 'Loading...', email: 'loading...', username: '', about: 'Available'
+    displayName: 'Loading...', 
+    email: 'loading...', 
+    username: '', 
+    about: 'Available',
+    avatarUrl: localStorage.getItem('avatarUrl') || ''
   });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
@@ -55,7 +59,8 @@ export default function SettingsPage() {
       displayName: localStorage.getItem('displayName') || 'User',
       email: localStorage.getItem('email') || '',
       username: localStorage.getItem('username') || '',
-      about: localStorage.getItem('about') || 'Available'
+      about: localStorage.getItem('about') || 'Available',
+      avatarUrl: localStorage.getItem('avatarUrl') || ''
     });
 
     const savedTheme = localStorage.getItem('theme');
@@ -97,7 +102,13 @@ export default function SettingsPage() {
         const res = await fetch(`${API_URL}/user/update-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, username: profile.username, displayName: profile.displayName })
+          body: JSON.stringify({ 
+            userId, 
+            username: profile.username, 
+            displayName: profile.displayName,
+            about: profile.about,
+            avatarUrl: profile.avatarUrl 
+          })
         });
         if (res.ok) {
            const data = await res.json();
@@ -108,6 +119,10 @@ export default function SettingsPage() {
            if (data.user?.displayName) {
              localStorage.setItem('displayName', data.user.displayName);
              setProfile(p => ({...p, displayName: data.user.displayName}));
+           }
+           if (data.user?.avatarUrl) {
+             localStorage.setItem('avatarUrl', data.user.avatarUrl);
+             setProfile(p => ({...p, avatarUrl: data.user.avatarUrl}));
            }
         } else {
            const errData = await res.json();
@@ -123,9 +138,29 @@ export default function SettingsPage() {
 
     localStorage.setItem('displayName', profile.displayName);
     localStorage.setItem('about', profile.about);
+    if (profile.avatarUrl) localStorage.setItem('avatarUrl', profile.avatarUrl);
     
     setIsEditingProfile(false);
     showToast('Profile updated successfully! ✨');
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Image must be under 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setProfile(p => ({ ...p, avatarUrl: base64 }));
+        localStorage.setItem('avatarUrl', base64);
+        showToast('Profile photo updated locally! Click Save Profile to persist.');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
@@ -326,6 +361,19 @@ export default function SettingsPage() {
               <span>{tab.label}</span>
             </button>
           ))}
+
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.clear();
+              sessionStorage.clear();
+              navigate('/login', { replace: true });
+            }}
+            className="whitespace-nowrap md:whitespace-normal md:w-full text-left px-4 py-3 rounded-2xl font-semibold transition-all duration-200 text-xs sm:text-sm flex items-center gap-2.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 cursor-pointer md:mt-4 shadow-sm"
+          >
+            <span>🚪</span>
+            <span>Log Out</span>
+          </button>
         </div>
 
         {/* Content Area */}
@@ -341,14 +389,87 @@ export default function SettingsPage() {
                 </span>
               </div>
               
-              <div className="flex items-center gap-5 mb-8 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg border-2 border-white dark:border-neutral-800">
-                  {profile.displayName.charAt(0).toUpperCase()}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-8 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                <div className="relative group shrink-0">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-emerald-500/50 shadow-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white text-2xl font-bold">
+                    {profile.avatarUrl ? (
+                      <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      profile.displayName.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <label
+                    htmlFor="settings-avatar-input"
+                    className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer transition-opacity"
+                    title="Change Photo"
+                  >
+                    Change
+                  </label>
+                  <input
+                    id="settings-avatar-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
                 </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold leading-tight">{profile.displayName}</h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">@{profile.username || 'username'}</p>
-                  <p className="text-xs text-neutral-400 mt-1">{profile.email}</p>
+
+                <div className="flex-1 text-center sm:text-left">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold leading-tight">{profile.displayName}</h3>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">@{profile.username || 'username'}</p>
+                      <p className="text-xs text-neutral-400 mt-1">{profile.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
+                      <label
+                        htmlFor="settings-avatar-input"
+                        className="px-3 py-1.5 rounded-full liquid-glass-btn text-xs font-semibold text-blue-600 dark:text-cyan-400 border border-blue-500/30 cursor-pointer shadow-sm hover:scale-105 transition"
+                      >
+                        Upload Photo
+                      </label>
+                      {profile.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfile(p => ({ ...p, avatarUrl: '' }));
+                            localStorage.removeItem('avatarUrl');
+                            showToast('Photo removed. Save profile to confirm.');
+                          }}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preset 3D Cyber Avatars */}
+                  <div className="mt-3 flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+                    <span className="text-[11px] text-neutral-400 font-medium">Presets:</span>
+                    {[
+                      'https://api.dicebear.com/7.x/bottts/svg?seed=Quantum1',
+                      'https://api.dicebear.com/7.x/bottts/svg?seed=CyberShield',
+                      'https://api.dicebear.com/7.x/bottts/svg?seed=AlphaMesh',
+                      'https://api.dicebear.com/7.x/bottts/svg?seed=NexusPrime',
+                      'https://api.dicebear.com/7.x/bottts/svg?seed=NeonVortex'
+                    ].map((url, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setProfile(p => ({ ...p, avatarUrl: url }));
+                          localStorage.setItem('avatarUrl', url);
+                          showToast('Preset avatar selected!');
+                        }}
+                        className={`w-7 h-7 rounded-full overflow-hidden border transition hover:scale-110 cursor-pointer ${
+                          profile.avatarUrl === url ? 'border-blue-500 ring-2 ring-blue-500/40' : 'border-neutral-300 dark:border-white/10 opacity-70'
+                        }`}
+                      >
+                        <img src={url} alt={`Preset ${i}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

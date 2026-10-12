@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
+  const [require2FAOption, setRequire2FAOption] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailFor2FA, setEmailFor2FA] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
@@ -43,10 +44,10 @@ export default function LoginPage() {
         const res = await fetch(`${API_URL}/auth/verify-otp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailFor2FA, otp: formData.otp })
+          body: JSON.stringify({ email: emailFor2FA, otp: formData.otp.trim() })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to verify OTP');
+        if (!res.ok) throw new Error(data.error || 'Failed to verify OTP code');
 
         const resolvedName = data.user?.displayName || data.user?.username || formData.email.split('@')[0];
         setWelcomeUserName(resolvedName);
@@ -55,8 +56,12 @@ export default function LoginPage() {
 
         localStorage.setItem('token', data.token);
         localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('email', data.user.email);
         if (data.user.displayName) localStorage.setItem('displayName', data.user.displayName);
         if (data.user.username) localStorage.setItem('username', data.user.username);
+        if (data.user.photo || data.user.avatarUrl) {
+          localStorage.setItem('avatarUrl', data.user.photo || data.user.avatarUrl);
+        }
         localStorage.setItem('justLoggedIn', 'true');
 
         setTimeout(() => {
@@ -66,14 +71,18 @@ export default function LoginPage() {
         const res = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email, password: formData.password })
+          body: JSON.stringify({ 
+            email: formData.email.trim(), 
+            password: formData.password,
+            require2FA: require2FAOption 
+          })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to login');
 
         if (data.requires2FA) {
           setRequires2FA(true);
-          setEmailFor2FA(data.email);
+          setEmailFor2FA(data.email || formData.email.trim());
           setIsLoading(false);
           return;
         }
@@ -88,6 +97,9 @@ export default function LoginPage() {
         localStorage.setItem('email', data.user.email);
         if (data.user.displayName) localStorage.setItem('displayName', data.user.displayName);
         if (data.user.username) localStorage.setItem('username', data.user.username);
+        if (data.user.photo || data.user.avatarUrl) {
+          localStorage.setItem('avatarUrl', data.user.photo || data.user.avatarUrl);
+        }
         localStorage.setItem('justLoggedIn', 'true');
 
         setTimeout(() => {
@@ -95,17 +107,18 @@ export default function LoginPage() {
         }, 1800);
       }
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError(err.message || 'Login failed. Please verify credentials.');
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#070c1d] text-white flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen text-slate-900 dark:text-white flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden font-sans selection:bg-blue-500 selection:text-white">
       
-      {/* Background Ambient Glows & Geometric Rings (from reference design) */}
-      <div className="absolute top-10 left-10 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+      {/* Background Ambient Fluid Glowing Mesh Orbs (Apple VisionOS / iOS style) */}
+      <div className="absolute top-10 left-10 w-[420px] h-[420px] bg-blue-500/20 dark:bg-blue-600/15 rounded-full blur-[130px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-10 right-10 w-[420px] h-[420px] bg-purple-500/20 dark:bg-indigo-600/15 rounded-full blur-[130px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-cyan-400/15 dark:bg-cyan-500/10 rounded-full blur-[160px] pointer-events-none" />
 
       {/* Top Bar with P2PConnect Brand & Theme Toggle */}
       <header className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between max-w-6xl mx-auto">
@@ -116,15 +129,15 @@ export default function LoginPage() {
             className="w-10 h-10 object-contain rounded-2xl drop-shadow-md group-hover:scale-105 transition-transform"
           />
           <div>
-            <span className="text-lg font-bold tracking-tight text-white block">P2PConnect</span>
-            <span className="text-[10px] uppercase font-semibold text-cyan-400 block -mt-1">Real-Time Mesh</span>
+            <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white block">P2PConnect</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 dark:text-cyan-400 block -mt-1">Real-Time Mesh</span>
           </div>
         </Link>
         <ThemeToggle />
       </header>
 
       {/* Main Split Screen Container Card (Liquid Glass Design) */}
-      <div className="w-full max-w-5xl rounded-[36px] liquid-glass-card shadow-[0_25px_70px_rgba(2,6,23,0.85)] p-6 sm:p-10 lg:p-12 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center mt-12 sm:mt-8">
+      <div className="w-full max-w-5xl rounded-[36px] liquid-glass-card p-6 sm:p-10 lg:p-12 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center mt-12 sm:mt-8">
         
         {/* LEFT COLUMN: 3D Cute Waving Robot Buddy + Interactive Dialog Speech Bubbles */}
         <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
@@ -140,22 +153,22 @@ export default function LoginPage() {
         {/* RIGHT COLUMN: Modern Form with Avatar Badge & Dynamic "Welcome back" greeting */}
         <div className="lg:col-span-7 flex flex-col justify-center">
           
-          {/* Top Robot Head Badge (from reference image) */}
+          {/* Top Security Badge */}
           <div className="flex items-center gap-3 mb-4">
-            <RobotShield3D className="w-12 h-12" />
+            <RobotShield3D className="w-12 h-12 shrink-0" />
             <div>
-              <span className="text-[11px] uppercase tracking-wider font-bold text-cyan-400 block">
+              <span className="text-[11px] uppercase tracking-wider font-extrabold text-blue-600 dark:text-cyan-400 block">
                 P2PConnect Security
               </span>
-              <span className="text-xs text-neutral-400">
-                End-to-End Encrypted Access
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                End-to-End Encrypted WebRTC Access
               </span>
             </div>
             {welcomeUserName && (
               <button
                 type="button"
                 onClick={() => parrotAudio.speakWelcome(welcomeUserName)}
-                className="ml-auto px-3 py-1 rounded-full bg-blue-500/15 hover:bg-blue-500/30 border border-blue-400/30 text-xs font-semibold text-cyan-300 flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm"
+                className="ml-auto px-3 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-xs font-semibold text-blue-700 dark:text-cyan-300 flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-sm"
                 title="Hear greeting aloud"
               >
                 <span>🔊</span>
@@ -164,39 +177,39 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Dynamic Headline: "Welcome back, {Name}!" */}
+          {/* Dynamic Headline */}
           <AnimatePresence mode="wait">
             {isLoggedInSuccess ? (
               <motion.div
                 key="welcome-back"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-400/40 text-emerald-300"
+                className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-400/40 text-emerald-800 dark:text-emerald-300"
               >
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   <span>Welcome back,</span>
-                  <span className="text-emerald-400 underline decoration-cyan-400 decoration-wavy">
+                  <span className="text-emerald-600 dark:text-emerald-400 underline decoration-cyan-400 decoration-wavy">
                     {welcomeUserName || 'Friend'}!
                   </span>
                   <span>🎉</span>
                 </h1>
-                <p className="text-xs text-emerald-200/90 mt-1.5 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Authenticated successfully. Buddy is opening your rooms...</span>
+                <p className="text-xs text-emerald-700 dark:text-emerald-200 mt-1.5 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Authenticated successfully. Opening decentralized peer mesh...</span>
                 </p>
               </motion.div>
             ) : (
               <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex flex-wrap items-center gap-1.5">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
                   <span>Welcome to</span>
-                  <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                    Sign In Buddy!
+                  <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-blue-400 dark:via-indigo-300 dark:to-cyan-300 bg-clip-text text-transparent">
+                    P2PConnect
                   </span>
                 </h1>
-                <p className="text-xs text-neutral-400 mt-1.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 font-medium">
                   {welcomeUserName
-                    ? `Welcome back, ${welcomeUserName}! Enter your credentials to sign in.`
-                    : 'Sign in to access your decentralized peer-to-peer rooms.'}
+                    ? `Welcome back, ${welcomeUserName}! Enter your credentials to access the secure mesh.`
+                    : 'Sign in to access your decentralized peer-to-peer rooms & end-to-end encrypted messaging.'}
                 </p>
               </div>
             )}
@@ -204,7 +217,7 @@ export default function LoginPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs p-3.5 rounded-2xl flex items-center gap-2">
+            <div className="mb-4 bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs p-3.5 rounded-2xl flex items-center gap-2 shadow-sm">
               <span>⚠️</span>
               <span>{error}</span>
             </div>
@@ -214,13 +227,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!requires2FA ? (
               <>
-                {/* Email / Username Input with Icon (exact from reference) */}
+                {/* Email / Username Input with Icon */}
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                     Email or Username
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm">
                       ✉️
                     </span>
                     <input
@@ -228,18 +241,18 @@ export default function LoginPage() {
                       required
                       onFocus={() => setIsFocusEmail(true)}
                       onBlur={() => setIsFocusEmail(false)}
-                      className="w-full liquid-glass-input rounded-2xl pl-11 pr-4 py-3.5 text-xs sm:text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none transition-all shadow-inner"
-                      placeholder="Enter your email"
+                      className="w-full liquid-glass-input rounded-2xl pl-11 pr-4 py-3.5 text-xs sm:text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all shadow-sm"
+                      placeholder="Enter your email or @username"
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
                 </div>
 
-                {/* Password Input with Lock Icon & Toggle (exact from reference) */}
+                {/* Password Input with Lock Icon & Toggle */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-xs font-semibold text-neutral-300">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Password
                     </label>
                     <button
@@ -253,7 +266,7 @@ export default function LoginPage() {
                           const res = await fetch(`${API_URL}/auth/forgot-password`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: formData.email })
+                            body: JSON.stringify({ email: formData.email.trim() })
                           });
                           const data = await res.json();
                           alert(data.message || 'Check your email for reset instructions.');
@@ -261,13 +274,13 @@ export default function LoginPage() {
                           alert('Failed to send reset email.');
                         }
                       }}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-500 font-medium transition-colors cursor-pointer"
                     >
                       Forgot password?
                     </button>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-sm">
                       🔒
                     </span>
                     <input
@@ -275,61 +288,123 @@ export default function LoginPage() {
                       required
                       onFocus={() => setIsFocusPassword(true)}
                       onBlur={() => setIsFocusPassword(false)}
-                      className="w-full liquid-glass-input rounded-2xl pl-11 pr-12 py-3.5 text-xs sm:text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none transition-all shadow-inner"
-                      placeholder="Enter your password"
+                      className="w-full liquid-glass-input rounded-2xl pl-11 pr-12 py-3.5 text-xs sm:text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all shadow-sm"
+                      placeholder="Enter your account password"
                       value={formData.password}
                       onChange={e => setFormData({ ...formData, password: e.target.value })}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-xs font-medium cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:hover:text-white text-xs font-medium cursor-pointer"
                     >
                       {showPassword ? '🙈' : '👁️'}
                     </button>
                   </div>
                 </div>
 
-                {/* Checkbox: I agree to Terms & Conditions (exact from reference) */}
+                {/* Two-Step Verification Checkbox */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/15">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="twoStepOption"
+                      checked={require2FAOption}
+                      onChange={e => setRequire2FAOption(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                    <label htmlFor="twoStepOption" className="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
+                      🛡️ Require 2-Step Email Verification Code (OTP)
+                    </label>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-cyan-400">High Security</span>
+                </div>
+
+                {/* Checkbox: Terms & Privacy */}
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="checkbox"
                     id="terms"
                     checked={agreeTerms}
                     onChange={e => setAgreeTerms(e.target.checked)}
-                    className="w-4 h-4 rounded bg-[#131d3d] border-blue-500/30 text-blue-500 focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="terms" className="text-xs text-neutral-400 cursor-pointer">
+                  <label htmlFor="terms" className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
                     I agree to{' '}
-                    <span className="text-cyan-400 hover:underline">Terms of Conditions</span> and{' '}
-                    <span className="text-cyan-400 hover:underline">Privacy of Policy</span>
+                    <span className="text-blue-600 dark:text-cyan-400 font-medium hover:underline">Terms of Service</span> and{' '}
+                    <span className="text-blue-600 dark:text-cyan-400 font-medium hover:underline">Privacy Policy</span>
                   </label>
                 </div>
               </>
             ) : (
               /* OTP Verification Step */
-              <div className="space-y-3 py-2">
-                <label className="text-xs font-semibold text-neutral-300 block text-center">
-                  Enter 6-Digit Email Verification Code
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  className="w-full liquid-glass-input rounded-2xl px-4 py-3.5 text-white placeholder-neutral-500 focus:outline-none text-center text-2xl tracking-[0.5em] font-mono font-bold shadow-inner"
-                  placeholder="000000"
-                  maxLength={6}
-                  value={formData.otp}
-                  onChange={e => setFormData({ ...formData, otp: e.target.value })}
-                />
+              <div className="space-y-4 py-2">
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
+                  <div className="text-2xl mb-1">📬</div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Security Verification Required</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    We sent a 6-digit one-time code to <strong className="text-blue-600 dark:text-cyan-400">{emailFor2FA}</strong>. Enter it below to unlock your account:
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block text-center mb-1.5">
+                    6-Digit Security Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    className="w-full liquid-glass-input rounded-2xl px-4 py-3.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none text-center text-2xl tracking-[0.4em] font-mono font-bold shadow-inner"
+                    placeholder="000000"
+                    maxLength={6}
+                    value={formData.otp}
+                    onChange={e => setFormData({ ...formData, otp: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequires2FA(false);
+                      setError('');
+                    }}
+                    className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                  >
+                    ← Back to credentials
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setIsLoading(true);
+                        const res = await fetch(`${API_URL}/auth/login`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: emailFor2FA, password: formData.password, require2FA: true })
+                        });
+                        const d = await res.json();
+                        alert(d.message || 'New OTP sent to your email.');
+                      } catch (err) {
+                        alert('Failed to resend code.');
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    className="text-blue-600 dark:text-cyan-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Resend Code
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Vibrant Blue Gradient Action Button (exact from reference) */}
+            {/* Blue Gradient Action Button */}
             <button
               type="submit"
-              disabled={isLoading || isLoggedInSuccess}
-              className="w-full mt-4 py-3.5 px-6 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-sm rounded-2xl shadow-[0_10px_25px_rgba(37,99,235,0.4)] transition-all transform hover:scale-[1.01] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isLoading || isLoggedInSuccess || (!agreeTerms && !requires2FA)}
+              className="w-full mt-4 py-3.5 px-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-sm rounded-2xl shadow-[0_10px_25px_rgba(37,99,235,0.35)] transition-all transform hover:scale-[1.01] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -337,51 +412,23 @@ export default function LoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>Signing In...</span>
+                  <span>{requires2FA ? 'Verifying Code...' : 'Authenticating...'}</span>
                 </>
               ) : isLoggedInSuccess ? (
                 <span>Welcome back, {welcomeUserName}! 🎉</span>
               ) : (
-                <span>{requires2FA ? 'Verify Code' : 'Sign In'}</span>
+                <span>{requires2FA ? 'Verify Code & Enter Mesh' : 'Sign In'}</span>
               )}
             </button>
 
-            {/* Switcher Text Link: "Already have an account? Sign Up" */}
+            {/* Switcher Text Link: Don't have an account? Sign Up */}
             <div className="text-center pt-2">
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-slate-600 dark:text-slate-400">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-blue-400 hover:text-blue-300 font-semibold hover:underline">
-                  Sign Up
+                <Link to="/register" className="text-blue-600 dark:text-cyan-400 font-semibold hover:underline">
+                  Create P2P Account
                 </Link>
               </span>
-            </div>
-
-            {/* Social / Alternative Continue With Row (exact from reference) */}
-            <div className="pt-3">
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-white/10" />
-                <span className="flex-shrink mx-4 text-[11px] text-neutral-500 font-medium">Or continue with</span>
-                <div className="flex-grow border-t border-white/10" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => alert('Demo Google sign-in is ready for custom OAuth.')}
-                  className="py-2.5 px-4 rounded-xl bg-[#131d3d] hover:bg-[#192752] border border-blue-500/20 text-xs font-semibold text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition"
-                >
-                  <span className="text-sm">🌐</span>
-                  <span>Google</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => alert('Demo Passkey sign-in is ready for WebAuthn.')}
-                  className="py-2.5 px-4 rounded-xl bg-[#131d3d] hover:bg-[#192752] border border-blue-500/20 text-xs font-semibold text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition"
-                >
-                  <span className="text-sm">🔑</span>
-                  <span>Passkey</span>
-                </button>
-              </div>
             </div>
 
           </form>
@@ -391,8 +438,8 @@ export default function LoginPage() {
       </div>
 
       {/* Footer Return Link */}
-      <div className="mt-8 text-center text-xs text-neutral-500 relative z-20">
-        <Link to="/" className="hover:text-neutral-300 transition underline">
+      <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400 relative z-20">
+        <Link to="/" className="hover:text-slate-800 dark:hover:text-neutral-200 transition underline">
           ← Return to P2PConnect Home
         </Link>
       </div>

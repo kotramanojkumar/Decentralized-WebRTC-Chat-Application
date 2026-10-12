@@ -1069,10 +1069,14 @@ export default function RoomPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center p-6">
-                      <div className={`w-20 h-20 rounded-full bg-[#00a884] flex items-center justify-center shadow-2xl mb-4 transition-transform ${
-                        isLocalSpeaking ? 'scale-110 shadow-[0_0_25px_rgba(0,168,132,0.6)]' : ''
+                      <div className={`w-20 h-20 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-2xl mb-4 border-2 border-white/20 transition-transform ${
+                        isLocalSpeaking ? 'scale-110 shadow-[0_0_25px_rgba(0,168,132,0.6)] border-emerald-400' : ''
                       }`}>
-                        <span className="text-2xl font-bold text-white">You</span>
+                        {localStorage.getItem('avatarUrl') ? (
+                          <img src={localStorage.getItem('avatarUrl')!} alt="You" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl font-bold text-white">You</span>
+                        )}
                       </div>
                       <span className="text-xs text-neutral-300 mb-3 font-medium">Microphone On</span>
                       <AudioFrequencyWave

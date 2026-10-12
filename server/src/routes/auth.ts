@@ -78,28 +78,20 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    if (user.twoFactorEnabled) {
-      // Check if it's a new device (naive check for demo: if they don't have a session with this exact device string)
-      const existingSession = await prisma.deviceSession.findFirst({
-        where: { userId: user.id, deviceInfo }
+    const shouldRequire2FA = user.twoFactorEnabled || req.body.require2FA === true;
+
+    if (shouldRequire2FA) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          currentOtp: otp,
+          otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 mins
+        }
       });
-
-      if (!existingSession) {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            currentOtp: otp,
-            otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 mins
-          }
-        });
-        
-        // Import mailer dynamically or normally. Since we can't easily add imports to top via this tool without wiping, we require it:
-        const { sendOtpEmail } = require('../utils/mailer');
-        await sendOtpEmail(user.email, otp);
-
-        return res.json({ requires2FA: true, email: user.email, message: 'OTP sent to email.' });
-      }
+      
+      await sendOtpEmail(user.email, otp);
+      return res.json({ requires2FA: true, email: user.email, message: 'OTP sent to email.' });
     }
 
     const session = await prisma.deviceSession.create({

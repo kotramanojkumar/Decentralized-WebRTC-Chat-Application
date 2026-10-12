@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import ThemeToggle from '../components/ThemeToggle';
 import NamaskarGreeting from '../components/NamaskarGreeting';
+import QuantumEntropyShield from '../components/QuantumEntropyShield';
 
 interface Task {
   id: string;
@@ -384,21 +385,34 @@ export default function DashboardPage() {
 
             <button
               onClick={() => navigate('/settings')}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 dark:text-neutral-200 liquid-glass-btn transition active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full liquid-glass-btn hover:scale-105 transition cursor-pointer"
+              title="Profile & Settings"
             >
-              Settings
+              <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-tr from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold">
+                {localStorage.getItem('avatarUrl') ? (
+                  <img src={localStorage.getItem('avatarUrl')!} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (localStorage.getItem('displayName') || localStorage.getItem('username') || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 hidden sm:inline">
+                {localStorage.getItem('displayName') || localStorage.getItem('username') || 'Profile'}
+              </span>
             </button>
+
+            {/* Quantum Entropy & E2EE Shield (Novelty Feature) */}
+            <QuantumEntropyShield />
 
             {/* Light / Dark Mode Toggle Button */}
             <ThemeToggle />
 
             <button
               onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('userId');
-                navigate('/login');
+                localStorage.clear();
+                sessionStorage.clear();
+                navigate('/login', { replace: true });
               }}
-              className="px-4 py-2 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-300 liquid-glass-btn border-rose-400/30 hover:bg-rose-500/10 transition active:scale-95 cursor-pointer"
+              className="px-4 py-2 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-300 liquid-glass-btn border-rose-400/30 hover:bg-rose-500/10 transition active:scale-95 cursor-pointer shadow-sm"
             >
               Logout
             </button>

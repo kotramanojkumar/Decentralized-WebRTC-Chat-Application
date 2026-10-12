@@ -32,14 +32,23 @@ router.post('/update-profile', async (req: Request, res: Response) => {
     const updateData: any = {};
     if (cleanUsername) updateData.username = cleanUsername;
     if (displayName) updateData.displayName = displayName;
-    // Note: We don't have 'about' field in DB yet, but we will save displayName and username
+    if (about !== undefined) updateData.about = about;
+    if (req.body.avatarUrl !== undefined) updateData.avatarUrl = req.body.avatarUrl;
 
     const user = await prisma.user.update({
       where: { id: userId },
       data: updateData
     });
 
-    res.json({ success: true, user: { username: user.username, displayName: user.displayName } });
+    res.json({ 
+      success: true, 
+      user: { 
+        username: user.username, 
+        displayName: user.displayName, 
+        about: user.about,
+        avatarUrl: user.avatarUrl 
+      } 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
