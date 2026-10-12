@@ -248,4 +248,69 @@ export class WebRTCManager {
       this.closeConnection(peerId);
     }
   }
+
+  // --- 2026 Telemetry & Diagnostics API ---
+  public getPeerConnections(): Map<string, RTCPeerConnection> {
+    return this.peerConnections;
+  }
+
+  public getCryptoManagers(): Map<string, CryptoManager> {
+    return this.cryptoManagers;
+  }
+
+  public async getTelemetry(): Promise<Array<PeerTelemetry>> {
+    const telemetryList: Array<PeerTelemetry> = [];
+
+    for (const [peerId, pc] of Array.from(this.peerConnections.entries())) {
+      let rtt = 0;
+      let candidateType = 'Direct (srflx)';
+      let bytesSent = 0;
+      let bytesReceived = 0;
+      let packetLoss = 0;
+
+      try {
+        const stats = await pc.getStats();
+        stats.forEach((report) => {
+          if (report.type === 'candidate-pair' && (report.nominated || report.selected || report.state === 'succeeded')) {
+            rtt = Math.round((report.currentRoundTripTime || 0) * 1000);
+            bytesSent = report.bytesSent || 0;
+            bytesReceived = report.bytesReceived || 0;
+          }
+          if (report.type === 'remote-candidate') {
+            const rawType = report.candidateType;
+            if (rawType === 'host') candidateType = 'LAN P2P (host)';
+            else if (rawType === 'srflx') candidateType = 'Direct STUN (srflx)';
+            else if (rawType === 'relay') candidateType = 'Relayed (TURN)';
+            else candidateType = rawType || 'Direct';
+          }
+          if (report.type === 'inbound-rtp') {
+            packetLoss = report.packetsLost || 0;
+          }
+        });
+      } catch (e) {}
+
+      telemetryList.push({
+        peerId,
+        rtt,
+        candidateType,
+        bytesSent,
+        bytesReceived,
+        packetLoss,
+        connectionState: pc.connectionState,
+      });
+    }
+
+    return telemetryList;
+  }
 }
+
+export interface PeerTelemetry {
+  peerId: string;
+  rtt: number;
+  candidateType: string;
+  bytesSent: number;
+  bytesReceived: number;
+  packetLoss: number;
+  connectionState: string;
+}
+

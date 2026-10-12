@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
+import ThemeToggle from '../components/ThemeToggle';
 
 const API = API_URL;
 
@@ -178,25 +179,31 @@ export default function ContactsPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 bg-white/5 backdrop-blur-xl rounded-2xl p-5 sm:px-8 sm:py-5 border border-white/10 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 bg-white/70 dark:bg-neutral-950/70 backdrop-blur-2xl rounded-[28px] p-5 sm:px-8 sm:py-5 border border-neutral-200/80 dark:border-white/10 shadow-xl">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/dashboard')} className="p-2 rounded-xl hover:bg-white/10 transition text-white/80">
+            <button onClick={() => navigate('/dashboard')} className="p-2.5 rounded-2xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 transition text-neutral-800 dark:text-neutral-200 cursor-pointer">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Contacts</h1>
-              <p className="text-sm text-white/50">Discover users &amp; start secure P2P conversations</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Contacts</h1>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  P2PConnect
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Discover users &amp; start secure P2P conversations</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             {incomingCount > 0 && (
-              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{incomingCount} request{incomingCount > 1 ? 's' : ''}</span>
+              <span className="bg-rose-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">{incomingCount} request{incomingCount > 1 ? 's' : ''}</span>
             )}
             <button
               onClick={() => { setTab('search'); setSearchQuery(''); }}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer"
             >
               Find Users
             </button>

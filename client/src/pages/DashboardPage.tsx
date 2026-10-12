@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
+import ThemeToggle from '../components/ThemeToggle';
+import NamaskarGreeting from '../components/NamaskarGreeting';
+
+interface Task {
+  id: string;
+  heading: string;
+  note: string;
+  date: string;
+  time: string;
+  done: boolean;
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -9,24 +21,13 @@ export default function DashboardPage() {
   const [customRoomId, setCustomRoomId] = useState('');
   const [roomPassword, setRoomPassword] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
-  const [roomType, setRoomType] = useState('p2p'); // Default to Direct Message
+  const [roomType, setRoomType] = useState('p2p'); // 'p2p' = Direct Call, 'group' = Group Call
   const [isCreating, setIsCreating] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [requiresPassword, setRequiresPassword] = useState(false);
 
   // Productivity State
-  const [time, setTime] = useState(new Date());
   const [notes, setNotes] = useState(localStorage.getItem('dashboardNotes') || '');
-  
-  interface Task {
-    id: string;
-    heading: string;
-    note: string;
-    date: string;
-    time: string;
-    done: boolean;
-  }
-  
   const [tasks, setTasks] = useState<Task[]>(
     JSON.parse(localStorage.getItem('dashboardTasks') || '[]')
   );
@@ -39,21 +40,36 @@ export default function DashboardPage() {
   const [taskTime, setTaskTime] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // My Rooms
+  const [myRooms, setMyRooms] = useState<any[]>([]);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3200);
+  };
+
+  // Notes sync
   useEffect(() => {
     localStorage.setItem('dashboardNotes', notes);
   }, [notes]);
 
+  // Check if redirected from closed call room
+  useEffect(() => {
+    const exitNotice = sessionStorage.getItem('roomExitNotice');
+    if (exitNotice) {
+      showToast(exitNotice);
+      sessionStorage.removeItem('roomExitNotice');
+    }
+  }, []);
+
+  // Tasks sync
   useEffect(() => {
     localStorage.setItem('dashboardTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  const [myRooms, setMyRooms] = useState<any[]>([]);
-  
+  // Fetch rooms
   useEffect(() => {
     const fetchMyRooms = async () => {
       const userId = localStorage.getItem('userId');
@@ -62,7 +78,7 @@ export default function DashboardPage() {
         const res = await fetch(`${API_URL}/rooms/my-rooms/${userId}`);
         if (res.ok) {
           const data = await res.json();
-          setMyRooms(data.rooms);
+          setMyRooms(data.rooms || []);
         }
       } catch (e) {}
     };
@@ -71,6 +87,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Create room
   const handleCreateRoom = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsCreating(true);
@@ -87,24 +104,23 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to create room');
+        showToast(data.error || 'Failed to create room');
         return;
       }
       if (data.room) {
-        // Automatically save password in localStorage temporarily for entry
         if (roomPassword) localStorage.setItem(`room_pass_${data.room.secureInviteCode}`, roomPassword);
         navigate(`/room/${data.room.secureInviteCode}?type=${roomType}`);
       }
     } catch (error) {
       console.error(error);
-      alert('Failed to create room');
+      showToast('Failed to create room');
     } finally {
       setIsCreating(false);
     }
   };
 
+  // Close room - Smoothly closed without disruptive browser popups
   const closeRoomFromDashboard = async (inviteCode: string) => {
-    if (!confirm('Are you sure you want to close this room? It will immediately disconnect anyone inside.')) return;
     try {
       const res = await fetch(`${API_URL}/rooms/close`, {
         method: 'POST',
@@ -113,13 +129,16 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setMyRooms(prev => prev.filter(r => r.secureInviteCode !== inviteCode));
-        alert('Room closed successfully.');
+        showToast('Room ended successfully.');
+      } else {
+        showToast('Unable to end room at this time.');
       }
     } catch (e) {
-      alert('Failed to close room');
+      showToast('Failed to close room');
     }
   };
 
+  // Check room
   const handleCheckRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     setJoinError('');
@@ -144,6 +163,7 @@ export default function DashboardPage() {
     }
   };
 
+  // Join room
   const handleJoinRoom = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setJoinError('');
@@ -165,7 +185,6 @@ export default function DashboardPage() {
 
         if (joinPassword) localStorage.setItem(`room_pass_${joinRoomId.trim()}`, joinPassword);
         
-        // Use authoritative type from the database verification
         const authoritativeType = data.room?.type || 'group';
         navigate(`/room/${joinRoomId.trim()}?type=${authoritativeType}`);
       } catch (error) {
@@ -174,6 +193,7 @@ export default function DashboardPage() {
     }
   };
 
+  // Task handlers
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (taskHeading.trim()) {
@@ -181,11 +201,10 @@ export default function DashboardPage() {
       let newDate = taskDate;
       let newTime = taskTime;
       
-      // If no time is set, default to 1 min from now for easy testing
       if (!newDate || !newTime) {
-          const now = new Date(Date.now() + 60000);
-          newDate = now.toISOString().split('T')[0];
-          newTime = now.toTimeString().slice(0, 5);
+        const now = new Date(Date.now() + 60000);
+        newDate = now.toISOString().split('T')[0];
+        newTime = now.toTimeString().slice(0, 5);
       }
 
       const targetDate = new Date(`${newDate}T${newTime}`);
@@ -205,7 +224,6 @@ export default function DashboardPage() {
 
         if (res.ok) {
           const data = await res.json();
-          // Transform DB task to local UI model
           setTasks([...tasks, {
             id: data.task.id,
             heading: data.task.heading,
@@ -215,10 +233,10 @@ export default function DashboardPage() {
             done: false
           }]);
           
-          alert(`Task saved! A real email reminder has been scheduled for ${targetDate.toLocaleString()}.\nIt will be sent to the linked email address of this account.`);
+          showToast(`Task saved! Reminder scheduled for ${targetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
         }
       } catch (e) {
-        alert('Failed to save task');
+        showToast('Failed to save task');
       }
 
       setTaskHeading('');
@@ -238,9 +256,10 @@ export default function DashboardPage() {
       const res = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setTasks(tasks.filter(t => t.id !== id));
+        showToast('Task removed.');
       }
     } catch (e) {
-      alert('Failed to delete task');
+      showToast('Failed to delete task');
     }
   };
 
@@ -255,13 +274,14 @@ export default function DashboardPage() {
       if (res.ok) {
         setTasks(tasks.map(t => t.id === id ? { ...t, heading: updatedHeading, note: updatedNote, date: updatedDate, time: updatedTime } : t));
         setEditingTaskId(null);
+        showToast('Task updated successfully.');
       }
     } catch (e) {
-      alert('Failed to update task');
+      showToast('Failed to update task');
     }
   };
 
-  // Ask for notification permission on mount for the simulation
+  // Notifications & initial task loading
   useEffect(() => {
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
       Notification.requestPermission();
@@ -273,358 +293,561 @@ export default function DashboardPage() {
         try {
           const res = await fetch(`${API_URL}/tasks/${userId}`);
           if (res.ok) {
-             const data = await res.json();
-             const dbTasks = data.tasks.map((t: any) => {
-                const td = new Date(t.targetDate);
-                return {
-                  id: t.id,
-                  heading: t.heading,
-                  note: t.note || '',
-                  date: td.toISOString().split('T')[0],
-                  time: td.toTimeString().slice(0, 5),
-                  done: t.isCompleted
-                }
-             });
-             setTasks(dbTasks);
+            const data = await res.json();
+            const dbTasks = data.tasks.map((t: any) => {
+              const td = new Date(t.targetDate);
+              return {
+                id: t.id,
+                heading: t.heading,
+                note: t.note || '',
+                date: td.toISOString().split('T')[0],
+                time: td.toTimeString().slice(0, 5),
+                done: t.isCompleted
+              };
+            });
+            setTasks(dbTasks);
           }
         } catch(e) {}
       }
     };
     loadTasks();
     
-    // Simulate Welcome Email Notification
     if (localStorage.getItem('justLoggedIn') === 'true') {
       localStorage.removeItem('justLoggedIn');
-      setTimeout(() => {
-        const emailBody = `Welcome to Decentralized Real-Time Chat!\n\nTo ensure your data remains secure, please remember to verify your devices in the Security Center.\nYour connection is protected by peer-to-peer WebRTC and End-to-End Encryption.`;
-        if (Notification.permission === 'granted') {
-          new Notification('New Email from Security Team', {
-            body: emailBody,
-            icon: '/favicon.ico'
-          });
-        } else {
-          alert(`GMAIL NOTIFICATION:\n\nSubject: Welcome to Secure Comms\n\n${emailBody}`);
-        }
-      }, 2000);
     }
   }, []);
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8 text-white relative overflow-x-hidden">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-neutral-100 dark:bg-[#070a12] text-neutral-900 dark:text-neutral-100 transition-colors duration-300 relative overflow-x-hidden">
       
-      <div className="max-w-6xl mx-auto relative z-10">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-white/5 backdrop-blur-xl rounded-2xl p-5 sm:px-8 sm:py-5 border border-white/10 shadow-2xl">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white via-blue-200 to-indigo-200 bg-clip-text text-transparent mb-1">
-              Welcome, {localStorage.getItem('displayName') || 'User'}
-            </h1>
-            <div className="text-white/50 font-mono text-xs sm:text-sm">
-              {time.toLocaleDateString()} | {time.toLocaleTimeString()}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30 transition" onClick={() => {
-              const url = window.location.origin;
-              navigator.clipboard.writeText(`Join me on Decentralized Chat!\n\nSign up here: ${url}`);
-              alert("Referral link copied to clipboard!");
-            }}>Invite Friend</button>
-            {localStorage.getItem('email') === 'kmk.kmk0789@gmail.com' && (
-              <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 transition border border-emerald-500/30" onClick={() => navigate('/admin')}>
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                  Admin
-                </span>
-              </button>
-            )}
-            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-white/80 hover:bg-white/10 border border-white/10 transition" onClick={() => navigate('/contacts')}>Contacts</button>
-            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-white/80 hover:bg-white/10 border border-white/10 transition" onClick={() => navigate('/settings')}>Settings</button>
-            <button className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition" onClick={() => navigate('/')}>Logout</button>
-          </div>
-        </header>
-
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          
-          {/* Main Chat Cards (Take up 2 columns) */}
-          <div className="lg:col-span-2 grid md:grid-cols-2 gap-6">
-            <div className="bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/50 dark:border-white/10 flex flex-col items-center text-center transition-all hover:shadow-xl hover:scale-[1.01]">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/25">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold mb-2 dark:text-white">Create New Room</h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-4 flex-1 text-sm">
-                Start a new secure session with end-to-end encryption.
-              </p>
-              <div className="flex w-full bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
-                <button
-                  onClick={() => setRoomType('p2p')}
-                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition ${roomType === 'p2p' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                >
-                  Direct Message (P2P)
-                </button>
-                <button
-                  onClick={() => setRoomType('group')}
-                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition ${roomType === 'group' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                >
-                  Group Room
-                </button>
-              </div>
-              <form onSubmit={handleCreateRoom} className="w-full flex flex-col">
-                <input
-                  type="text"
-                  placeholder="Custom Room Code (Optional)"
-                  value={customRoomId}
-                  onChange={e => setCustomRoomId(e.target.value)}
-                  autoComplete="off"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-                <input
-                  type="password"
-                  placeholder="Room Password (Optional)"
-                  value={roomPassword}
-                  onChange={e => setRoomPassword(e.target.value)}
-                  autoComplete="new-password"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-                <div className="w-full mb-4 text-left">
-                   <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Schedule For (Optional)</label>
-                   <input
-                     type="datetime-local"
-                     value={scheduledFor}
-                     onChange={e => setScheduledFor(e.target.value)}
-                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                   />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isCreating}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
-                >
-                  {isCreating ? 'Creating...' : 'Create Room'}
-                </button>
-              </form>
-            </div>
-
-            <div className="bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/50 dark:border-white/10 flex flex-col items-center text-center transition-all hover:shadow-xl hover:scale-[1.01]">
-              <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/25">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold mb-2 dark:text-white">Join Existing Room</h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-6 flex-1 text-sm">
-                Enter a secure invite code to join a session.
-              </p>
-              <form onSubmit={requiresPassword ? handleJoinRoom : handleCheckRoom} className="w-full flex flex-col gap-3">
-                {joinError && <div className="text-red-500 text-sm font-medium">{joinError}</div>}
-                
-                <input
-                  type="text"
-                  placeholder="Paste Invite Code..."
-                  value={joinRoomId}
-                  onChange={e => {
-                     setJoinRoomId(e.target.value);
-                     setRequiresPassword(false);
-                     setJoinError('');
-                  }}
-                  autoComplete="off"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
-                />
-
-                {requiresPassword && (
-                  <input
-                    type="password"
-                    placeholder="Enter Room Password..."
-                    value={joinPassword}
-                    onChange={e => setJoinPassword(e.target.value)}
-                    required
-                    autoComplete="new-password"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
-                  />
-                )}
-
-                <button
-                  type="submit"
-                  disabled={!joinRoomId.trim()}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 transition disabled:opacity-50"
-                >
-                  {requiresPassword ? 'Join with Password' : 'Join Room'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Quick Notes */}
-          <div className="bg-amber-50/80 dark:bg-amber-900/10 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-amber-200/50 dark:border-amber-800/30 flex flex-col transition-all">
-            <h2 className="text-lg font-semibold mb-3 text-amber-900 dark:text-amber-500 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-              Quick Notes
-            </h2>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Jot down meeting notes or ideas here..."
-              className="flex-1 w-full bg-transparent border-none resize-none focus:outline-none text-amber-800 dark:text-amber-200 placeholder-amber-700/50 dark:placeholder-amber-500/50 min-h-[150px]"
+      {/* Background Ambient Glows */}
+      <div className="fixed top-0 left-1/4 w-[600px] h-[350px] bg-blue-500/10 dark:bg-blue-600/10 blur-[140px] pointer-events-none -z-0" />
+      <div className="fixed bottom-10 right-10 w-[500px] h-[350px] bg-emerald-500/10 dark:bg-emerald-600/10 blur-[140px] pointer-events-none -z-0" />
+      
+      <div className="max-w-7xl mx-auto relative z-10">
+        
+        {/* Top Header Command Bar (Liquid Glass Pill) */}
+        <motion.header
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 liquid-glass rounded-[28px] p-4 sm:px-7 sm:py-4 shadow-xl"
+        >
+          {/* Brand & Connection State */}
+          <div className="flex items-center gap-3">
+            <img
+              src="/assets/p2p_connect_icon.png"
+              alt="P2PConnect"
+              className="w-11 h-11 object-contain rounded-2xl drop-shadow-md hover:scale-105 transition-transform"
             />
-          </div>
-        </div>
-
-        {/* Active Sessions UI */}
-        {myRooms.length > 0 && (
-          <div className="mb-8 bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg border border-white/50 dark:border-white/10 w-full transition-all">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              My Active Sessions
-            </h2>
-            <div className="space-y-3">
-              {myRooms.map(room => (
-                <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
-                  <div className="mb-3 sm:mb-0">
-                    <div className="font-mono font-medium text-gray-800 dark:text-gray-200">
-                      Code: {room.secureInviteCode}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      Type: {room.type === 'p2p' ? 'Direct Message' : 'Group Chat'} 
-                      {room.hasPassword && ' 🔒'}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => navigate(`/room/${room.secureInviteCode}?type=${room.type}`)}
-                      className="px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition text-sm"
-                    >
-                      Re-join
-                    </button>
-                    <button 
-                      onClick={() => closeRoomFromDashboard(room.secureInviteCode)}
-                      className="px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition text-sm"
-                    >
-                      Close Room
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-base tracking-tight text-neutral-900 dark:text-white">
+                  P2PConnect
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
+                End-to-End Encrypted Calling & Chat
+              </p>
             </div>
           </div>
-        )}
 
-        <div className="grid gap-6">
-          {/* Tasks List */}
-          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-lg p-6 rounded-xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-white/50 dark:border-white/10 transition-all flex flex-col min-h-[300px]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold dark:text-white flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                To-Do Tasks & Automated Reminders
-              </h2>
-              <button 
-                onClick={() => setIsAddingTask(!isAddingTask)} 
-                className="text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition font-medium"
+          {/* Action Navigation Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                const url = window.location.origin;
+                navigator.clipboard.writeText(`Join me on P2PConnect: ${url}`);
+                showToast("Invite link copied to clipboard!");
+              }}
+              className="px-4 py-2 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:scale-105 shadow-md transition active:scale-95 cursor-pointer"
+            >
+              Share Invite
+            </button>
+
+            {localStorage.getItem('email') === 'kmk.kmk0789@gmail.com' && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="px-4 py-2 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition border border-emerald-300 dark:border-emerald-500/30 active:scale-95"
               >
-                {isAddingTask ? 'Cancel' : '+ Add Task'}
+                Admin
               </button>
-            </div>
-            
-            {isAddingTask && (
-              <form onSubmit={addTask} className="mb-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex flex-col gap-3">
-                <input 
-                  type="text" 
-                  value={taskHeading} 
-                  onChange={e => setTaskHeading(e.target.value)} 
-                  placeholder="Task Heading" 
-                  required
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:bg-gray-700 dark:text-white font-medium"
-                />
-                <textarea 
-                  value={taskNote} 
-                  onChange={e => setTaskNote(e.target.value)} 
-                  placeholder="Additional notes..." 
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:bg-gray-700 dark:text-white resize-none"
-                  rows={2}
-                />
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <input 
-                      type="date" 
-                      value={taskDate} 
-                      onChange={e => setTaskDate(e.target.value)} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <input 
-                      type="time" 
-                      value={taskTime} 
-                      onChange={e => setTaskTime(e.target.value)} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                </div>
-                <button type="submit" className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 mt-1">Save Task & Schedule Email Reminder</button>
-              </form>
             )}
+
+            <button
+              onClick={() => navigate('/contacts')}
+              className="px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 dark:text-neutral-200 liquid-glass-btn transition active:scale-95 cursor-pointer"
+            >
+              Contacts
+            </button>
+
+            <button
+              onClick={() => navigate('/settings')}
+              className="px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 dark:text-neutral-200 liquid-glass-btn transition active:scale-95 cursor-pointer"
+            >
+              Settings
+            </button>
+
+            {/* Light / Dark Mode Toggle Button */}
+            <ThemeToggle />
+
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                navigate('/login');
+              }}
+              className="px-4 py-2 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-300 liquid-glass-btn border-rose-400/30 hover:bg-rose-500/10 transition active:scale-95 cursor-pointer"
+            >
+              Logout
+            </button>
+          </div>
+        </motion.header>
+
+        {/* Main Organized 2-Column Dashboard Layout */}
+        <div className="grid lg:grid-cols-12 gap-6">
+          
+          {/* Left Column: Namaskar Greeting + Quick Scratchpad Notes */}
+          <div className="lg:col-span-4 flex flex-col gap-6">
             
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {tasks.map(task => (
-                <div key={task.id} className={`p-3 rounded-lg border ${task.done ? 'bg-gray-50 border-gray-100 dark:bg-gray-800/50 dark:border-gray-700' : 'bg-white border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-600'} transition flex gap-3 items-start`}>
-                  <input 
-                    type="checkbox" 
-                    checked={task.done} 
-                    onChange={() => toggleTask(task.id)}
-                    className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
-                  />
-                  {editingTaskId === task.id ? (
-                    <div className="flex-1 min-w-0">
-                      <form onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.target as HTMLFormElement);
-                        updateTask(task.id, formData.get('heading') as string, formData.get('note') as string, formData.get('date') as string, formData.get('time') as string);
-                      }} className="flex flex-col gap-2">
-                        <input name="heading" defaultValue={task.heading} required className="w-full text-sm border p-1 rounded dark:bg-gray-700 dark:border-gray-600" placeholder="Heading" />
-                        <input name="note" defaultValue={task.note} className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" placeholder="Notes" />
-                        <div className="flex gap-2">
-                          <input type="date" name="date" defaultValue={task.date} required className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
-                          <input type="time" name="time" defaultValue={task.time} required className="w-full text-xs border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
-                        </div>
-                        <div className="flex gap-2 mt-1">
-                          <button type="submit" className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Save</button>
-                          <button type="button" onClick={() => setEditingTaskId(null)} className="text-xs bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Cancel</button>
-                        </div>
-                      </form>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <h3 className={`font-medium text-sm truncate ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
-                        {task.heading}
-                      </h3>
-                      {task.note && (
-                        <p className={`text-xs mt-1 ${task.done ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}`}>
-                          {task.note}
-                        </p>
-                      )}
-                      {(task.date || task.time) && (
-                        <div className="flex gap-2 mt-2 text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 inline-block px-2 py-0.5 rounded">
-                          {task.date} {task.time} (Reminder Scheduled)
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-1">
-                    <button onClick={() => setEditingTaskId(task.id)} className="text-gray-400 hover:text-indigo-500 p-1">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            {/* Indian Namaskar Welcome Avatar */}
+            <NamaskarGreeting />
+
+            {/* Quick Notes Scratchpad (Liquid Glass) */}
+            <div className="liquid-glass-card p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
+                    <img
+                      src="/assets/quick_notes_icon.png"
+                      alt="Quick Notes"
+                      className="w-8 h-8 object-contain rounded-xl drop-shadow-md inline-block shrink-0"
+                    />
+                    <span>Quick Notes</span>
+                  </h2>
+                  <span className="text-[10px] font-medium bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-white/10 px-2.5 py-0.5 rounded-full">
+                    Auto-saved
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+                  Jot down meeting points, room codes, or reminders.
+                </p>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Type temporary notes here..."
+                  className="w-full liquid-glass-input rounded-2xl p-3.5 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:outline-none resize-none min-h-[190px] font-sans"
+                />
+              </div>
+              <div className="mt-3 text-[10px] text-neutral-400 dark:text-neutral-500 font-medium flex items-center gap-1.5">
+                <span>🔒</span> Saved locally in your browser
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column: Actions (Create & Join Calls), Active Rooms, Tasks */}
+          <div className="lg:col-span-8 flex flex-col gap-6">
+            
+            {/* Row of Two Primary Action Cards: Start Call & Join Call */}
+            <div className="grid sm:grid-cols-2 gap-6">
+              
+              {/* Create a Room Card */}
+              <motion.div
+                id="create-call-card"
+                whileHover={{ y: -3 }}
+                transition={{ duration: 0.2 }}
+                className="liquid-glass-card p-6 flex flex-col justify-between shadow-2xl"
+              >
+                <div>
+                  <div className="mb-4 flex items-center">
+                    <img
+                      src="/assets/create_room_icon.png"
+                      alt="Create a Room"
+                      className="w-14 h-14 object-contain rounded-2xl drop-shadow-md hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <h2 className="text-base font-bold mb-1 text-neutral-900 dark:text-white">
+                    Create a Room
+                  </h2>
+                  <p className="text-neutral-500 dark:text-neutral-400 mb-4 text-xs">
+                    Start an instant encrypted video or audio room.
+                  </p>
+
+                  {/* Room Type Switcher */}
+                  <div className="flex w-full bg-neutral-100 dark:bg-neutral-900/80 p-1 rounded-full mb-4 border border-neutral-200/80 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setRoomType('p2p')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition ${
+                        roomType === 'p2p'
+                          ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Direct Call (P2P)
                     </button>
-                    <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 p-1">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button
+                      type="button"
+                      onClick={() => setRoomType('group')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition ${
+                        roomType === 'group'
+                          ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Group Call
                     </button>
                   </div>
+
+                  <form onSubmit={handleCreateRoom} className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Custom Room Code (Optional)"
+                      value={customRoomId}
+                      onChange={e => setCustomRoomId(e.target.value)}
+                      className="w-full liquid-glass-input rounded-2xl px-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Room Password (Optional)"
+                      value={roomPassword}
+                      onChange={e => setRoomPassword(e.target.value)}
+                      className="w-full liquid-glass-input rounded-2xl px-4 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
+                    />
+                    <div>
+                      <label className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium block mb-1">
+                        Schedule Date & Time (Optional)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledFor}
+                        onChange={e => setScheduledFor(e.target.value)}
+                        className="w-full liquid-glass-input rounded-2xl px-4 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isCreating}
+                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-blue-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98]"
+                    >
+                      {isCreating ? 'Creating Room...' : 'Create Room Now'}
+                    </button>
+                  </form>
                 </div>
-              ))}
-              {tasks.length === 0 && !isAddingTask && <p className="text-sm text-gray-500 text-center mt-8">No tasks yet. Click "Add Task" to get started and automatically schedule reminders!</p>}
+              </motion.div>
+
+              {/* Join a Room Card */}
+              <motion.div
+                id="join-call-card"
+                whileHover={{ y: -3 }}
+                transition={{ duration: 0.2 }}
+                className="liquid-glass-card p-6 flex flex-col justify-between shadow-2xl"
+              >
+                <div>
+                  <div className="mb-4 flex items-center">
+                    <img
+                      src="/assets/join_room_icon.png"
+                      alt="Join a Room"
+                      className="w-24 h-14 object-contain rounded-xl drop-shadow-md hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <h2 className="text-base font-bold mb-1 text-neutral-900 dark:text-white">
+                    Join a Room
+                  </h2>
+                  <p className="text-neutral-500 dark:text-neutral-400 mb-6 text-xs">
+                    Enter the invite code to join an ongoing call or chat room.
+                  </p>
+
+                  <form onSubmit={requiresPassword ? handleJoinRoom : handleCheckRoom} className="space-y-3">
+                    {joinError && (
+                      <div className="p-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs">
+                        {joinError}
+                      </div>
+                    )}
+
+                    <input
+                      type="text"
+                      placeholder="Paste Room Invite Code..."
+                      value={joinRoomId}
+                      onChange={e => {
+                        setJoinRoomId(e.target.value);
+                        setRequiresPassword(false);
+                        setJoinError('');
+                      }}
+                      className="w-full liquid-glass-input rounded-2xl px-4 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none font-mono"
+                    />
+
+                    {requiresPassword && (
+                      <input
+                        type="password"
+                        placeholder="Enter Room Password..."
+                        value={joinPassword}
+                        onChange={e => setJoinPassword(e.target.value)}
+                        required
+                        className="w-full liquid-glass-input rounded-2xl px-4 py-3 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
+                      />
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={!joinRoomId.trim()}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white py-3 rounded-full font-semibold shadow-lg shadow-emerald-500/25 transition text-xs tracking-wide disabled:opacity-50 cursor-pointer transform active:scale-[0.98]"
+                    >
+                      {requiresPassword ? 'Verify Password & Join' : 'Join Room Now'}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/10 text-[11px] text-neutral-500 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                    <img src="/assets/p2p_connect_icon.png" alt="P2P" className="w-4 h-4 object-contain inline-block" />
+                    <span>WebRTC Direct P2P Channel</span>
+                  </span>
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Online
+                  </span>
+                </div>
+              </motion.div>
+
             </div>
+
+            {/* Active Rooms Section */}
+            {myRooms.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="liquid-glass-card p-6 shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Active Calls
+                  </h2>
+                  <span className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-500/30 px-3 py-1 rounded-full">
+                    {myRooms.length} Active
+                  </span>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {myRooms.map(room => (
+                    <div
+                      key={room.id}
+                      className="p-4 rounded-2xl liquid-glass border border-neutral-200/80 dark:border-white/10 hover:border-blue-400 dark:hover:border-blue-500/50 transition flex flex-col justify-between"
+                    >
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
+                            {room.secureInviteCode}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+                            {room.type === 'p2p' ? (
+                              <>
+                                <img src="/assets/p2p_connect_icon.png" alt="P2P" className="w-3.5 h-3.5 object-contain inline-block" />
+                                <span>Direct P2P</span>
+                              </>
+                            ) : (
+                              <span>Group Call</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                          {room.hasPassword ? '🔒 Protected' : '🔓 Open Link'}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => navigate(`/room/${room.secureInviteCode}?type=${room.type}`)}
+                          className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium text-xs transition cursor-pointer"
+                        >
+                          Re-join
+                        </button>
+                        <button 
+                          onClick={() => closeRoomFromDashboard(room.secureInviteCode)}
+                          className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-500/30 rounded-xl font-medium text-xs transition cursor-pointer"
+                          title="End Call"
+                        >
+                          End
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Tasks & Email Reminders */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="liquid-glass-card p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
+                    <img
+                      src="/assets/meeting_tasks_icon.png"
+                      alt="Meeting Tasks & Email Reminders"
+                      className="w-8 h-8 object-contain rounded-lg drop-shadow-md inline-block shrink-0"
+                    />
+                    <span>Meeting Tasks & Email Reminders</span>
+                  </h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Schedule call reminders delivered to your email.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingTask(!isAddingTask)} 
+                  className="text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-3.5 py-1.5 rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition cursor-pointer"
+                >
+                  {isAddingTask ? 'Cancel' : '+ Add Task'}
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {isAddingTask && (
+                  <motion.form
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    onSubmit={addTask}
+                    className="mb-4 liquid-glass p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-white/10 space-y-3"
+                  >
+                    <input 
+                      type="text" 
+                      value={taskHeading} 
+                      onChange={e => setTaskHeading(e.target.value)} 
+                      placeholder="Meeting Topic or Task Heading" 
+                      required
+                      className="w-full liquid-glass-input rounded-xl px-3.5 py-2.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
+                    />
+                    <textarea 
+                      value={taskNote} 
+                      onChange={e => setTaskNote(e.target.value)} 
+                      placeholder="Agenda details or meeting link..." 
+                      className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none resize-none"
+                      rows={2}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input 
+                        type="date" 
+                        value={taskDate} 
+                        onChange={e => setTaskDate(e.target.value)} 
+                        className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
+                      />
+                      <input 
+                        type="time" 
+                        value={taskTime} 
+                        onChange={e => setTaskTime(e.target.value)} 
+                        className="w-full liquid-glass-input rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white py-2.5 rounded-xl text-xs font-semibold tracking-wide transition shadow-lg shadow-blue-500/25 cursor-pointer"
+                    >
+                      Save Task & Schedule Reminder
+                    </button>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                {tasks.map(task => (
+                  <div
+                    key={task.id}
+                    className={`p-3.5 rounded-2xl border ${
+                      task.done
+                        ? 'bg-neutral-100/60 dark:bg-neutral-950/40 border-neutral-200 dark:border-neutral-800 opacity-60'
+                        : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                    } transition flex items-start gap-3`}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={task.done} 
+                      onChange={() => toggleTask(task.id)}
+                      className="mt-1 w-4 h-4 text-blue-600 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer"
+                    />
+                    
+                    {editingTaskId === task.id ? (
+                      <div className="flex-1">
+                        <form onSubmit={(e) => {
+                          e.preventDefault();
+                          const formData = new FormData(e.target as HTMLFormElement);
+                          updateTask(task.id, formData.get('heading') as string, formData.get('note') as string, formData.get('date') as string, formData.get('time') as string);
+                        }} className="space-y-2">
+                          <input name="heading" defaultValue={task.heading} required className="w-full text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 p-2 rounded-xl text-neutral-900 dark:text-white" />
+                          <input name="note" defaultValue={task.note} className="w-full text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 p-2 rounded-xl text-neutral-900 dark:text-white" />
+                          <div className="flex gap-2">
+                            <input type="date" name="date" defaultValue={task.date} required className="text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 p-2 rounded-xl text-neutral-900 dark:text-white flex-1" />
+                            <input type="time" name="time" defaultValue={task.time} required className="text-xs bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 p-2 rounded-xl text-neutral-900 dark:text-white flex-1" />
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="submit" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-xl font-bold cursor-pointer">Save</button>
+                            <button type="button" onClick={() => setEditingTaskId(null)} className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-3 py-1.5 rounded-xl cursor-pointer">Cancel</button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-semibold text-xs sm:text-sm truncate ${task.done ? 'line-through text-neutral-400' : 'text-neutral-900 dark:text-white'}`}>
+                          {task.heading}
+                        </h3>
+                        {task.note && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2">
+                            {task.note}
+                          </p>
+                        )}
+                        {(task.date || task.time) && (
+                          <div className="mt-2 text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/20 inline-block px-2.5 py-0.5 rounded-full">
+                            📅 {task.date} {task.time}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setEditingTaskId(task.id)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 text-xs cursor-pointer">
+                        ✏️
+                      </button>
+                      <button onClick={() => deleteTask(task.id)} className="text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 text-xs cursor-pointer">
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {tasks.length === 0 && !isAddingTask && (
+                  <p className="text-xs text-neutral-400 text-center py-6">
+                    No active tasks. Click "+ Add Task" to set up meeting schedules.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+
           </div>
+
         </div>
+
       </div>
+
+      {/* Modern Liquid Glass Toast Notification (Zero intrusive popups) */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 backdrop-blur-2xl border border-white/20 dark:border-black/20 text-xs sm:text-sm font-semibold shadow-2xl flex items-center gap-2 pointer-events-none"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-

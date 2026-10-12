@@ -120,4 +120,30 @@ export class CryptoManager {
     }
     return bytes.buffer;
   }
+
+  // --- 2026 Novelty Cryptography Functions ---
+
+  // 5. Signal-style deterministic 60-digit Safety Number Fingerprint
+  public async generateSafetyNumber(remotePublicKeyBase64: string): Promise<string> {
+    const localPub = await this.exportPublicKey();
+    const combined = [localPub, remotePublicKeyBase64].sort().join('::');
+    const encoder = new TextEncoder();
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(combined));
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    
+    let digits = '';
+    for (let i = 0; i < hashArray.length && digits.length < 60; i += 2) {
+      const num = (((hashArray[i] << 8) | (hashArray[i + 1] || 0)) % 100000);
+      digits += num.toString().padStart(5, '0') + ' ';
+    }
+    return digits.trim();
+  }
+
+  // 6. Cryptographic Hash Chain block generation for Session Audit Ledger
+  public static async calculateBlockHash(prevHash: string, sender: string, text: string, timestamp: number): Promise<string> {
+    const payload = `${prevHash}|${sender}|${text}|${timestamp}`;
+    const encoder = new TextEncoder();
+    const digest = await window.crypto.subtle.digest('SHA-256', encoder.encode(payload));
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
 }

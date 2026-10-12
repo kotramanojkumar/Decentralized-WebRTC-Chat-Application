@@ -14,8 +14,13 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function App() {
   useEffect(() => {
-    // Force dark mode globally
-    document.documentElement.classList.add('dark');
+    // Respect stored theme (defaults to dark mode)
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
   }, []);
 
   return (
