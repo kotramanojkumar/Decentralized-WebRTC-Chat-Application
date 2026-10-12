@@ -1,0 +1,13 @@
+{
+  "name": "decentralized-webrtc-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "cd server && npm start"
+  },
+  "dependencies": {
+    "nodemailer": "^9.1.0"
+  }
+}
