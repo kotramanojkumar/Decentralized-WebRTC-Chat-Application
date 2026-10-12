@@ -6,6 +6,7 @@ import BuddyRobot from '../components/BuddyRobot';
 import ThemeToggle from '../components/ThemeToggle';
 import { RobotShield3D } from '../components/ThreeDIcons';
 import { parrotAudio } from '../utils/parrotAudio';
+import TermsPrivacyModal from '../components/TermsPrivacyModal';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -14,6 +15,10 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
+
+  // Modal State for Terms of Service and Privacy Policy
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<'terms' | 'privacy'>('terms');
 
   // Focus & Success state
   const [isFocusEmail, setIsFocusEmail] = useState(false);
@@ -277,7 +282,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Checkbox: Terms & Privacy */}
+            {/* Checkbox: Terms & Privacy (Clickable to view modal) */}
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
@@ -286,10 +291,31 @@ export default function RegisterPage() {
                 onChange={e => setAgreeTerms(e.target.checked)}
                 className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
               />
-              <label htmlFor="reg-terms" className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+              <label htmlFor="reg-terms" className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none">
                 I agree to{' '}
-                <span className="text-blue-600 dark:text-cyan-400 font-medium hover:underline">Terms of Service</span> and{' '}
-                <span className="text-blue-600 dark:text-cyan-400 font-medium hover:underline">Privacy Policy</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setModalTab('terms');
+                    setModalOpen(true);
+                  }}
+                  className="text-blue-600 dark:text-cyan-400 font-medium hover:underline inline cursor-pointer"
+                >
+                  Terms of Service
+                </button>{' '}
+                and{' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setModalTab('privacy');
+                    setModalOpen(true);
+                  }}
+                  className="text-blue-600 dark:text-cyan-400 font-medium hover:underline inline cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
               </label>
             </div>
 
@@ -362,6 +388,17 @@ export default function RegisterPage() {
           ← Return to P2PConnect Home
         </Link>
       </div>
+
+      {/* Interactive Terms & Privacy Policy Modal */}
+      <TermsPrivacyModal
+        isOpen={modalOpen}
+        initialTab={modalTab}
+        onClose={() => setModalOpen(false)}
+        onAccept={() => {
+          setAgreeTerms(true);
+          setModalOpen(false);
+        }}
+      />
 
     </div>
   );

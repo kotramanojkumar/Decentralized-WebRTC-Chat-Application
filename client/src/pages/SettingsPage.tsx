@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import ThemeToggle from '../components/ThemeToggle';
+import TermsPrivacyModal from '../components/TermsPrivacyModal';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -83,9 +84,24 @@ export default function SettingsPage() {
       document.documentElement.classList.remove('dark');
     }
 
-    // Fetch active sessions
+    // Fetch active profile & 2FA status from database
     const userId = localStorage.getItem('userId');
     if (userId) {
+      fetch(`${API_URL}/user/${userId}/profile`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.user) {
+            if (data.user.twoFactorEnabled !== undefined) {
+              setPrivacy(p => ({ ...p, twoFactorEnabled: data.user.twoFactorEnabled }));
+              localStorage.setItem('twoFactorEnabled', String(data.user.twoFactorEnabled));
+            }
+            if (data.user.displayName) setProfile(p => ({ ...p, displayName: data.user.displayName }));
+            if (data.user.email) setProfile(p => ({ ...p, email: data.user.email }));
+            if (data.user.username) setProfile(p => ({ ...p, username: data.user.username }));
+            if (data.user.about) setProfile(p => ({ ...p, about: data.user.about }));
+          }
+        }).catch(e => console.error('Failed to load user profile:', e));
+
       fetch(`${API_URL}/user/${userId}/sessions`)
         .then(r => r.json())
         .then(data => {
@@ -657,6 +673,38 @@ export default function SettingsPage() {
           {activeTab === 'security' && (
             <div className="space-y-6">
               
+              {/* Dedicated Two-Step Verification Card in Security Tab */}
+              <div className="liquid-glass-card p-6 sm:p-8 rounded-[32px] shadow-2xl border border-blue-500/20 bg-blue-500/5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-2xl shrink-0">
+                      🛡️
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h2 className="text-base sm:text-lg font-bold tracking-tight text-neutral-900 dark:text-white">
+                          Two-Step Verification (OTP Authentication)
+                        </h2>
+                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                          privacy.twoFactorEnabled
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                            : 'bg-neutral-500/15 text-neutral-600 dark:text-neutral-400 border-neutral-500/30'
+                        }`}>
+                          {privacy.twoFactorEnabled ? 'ACTIVE / ENABLED' : 'DISABLED'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed max-w-xl">
+                        Add an extra layer of security. When enabled, signing into your account requires a 6-digit One-Time Passcode (OTP) delivered to your registered email address (<span className="font-mono font-semibold text-blue-600 dark:text-cyan-400">{profile.email}</span>). When disabled, you can log in using only your password.
+                      </p>
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    checked={privacy.twoFactorEnabled}
+                    onChange={val => handlePrivacyChange('twoFactorEnabled', val)}
+                  />
+                </div>
+              </div>
+
               <div className="liquid-glass-card p-6 sm:p-8 rounded-[32px] shadow-2xl">
                 <h2 className="text-xl font-bold tracking-tight mb-4">Change Password</h2>
                 <form onSubmit={handlePasswordUpdate} className="space-y-3.5">
@@ -782,56 +830,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Security & Privacy Policy Modal */}
-      {showPolicyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[32px] shadow-2xl p-6 sm:p-8 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight">P2PConnect Architecture & Privacy</h2>
-              </div>
-              <button
-                onClick={() => setShowPolicyModal(false)}
-                className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-5 text-xs sm:text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-              <section className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                <h3 className="font-bold text-sm mb-1.5 text-neutral-900 dark:text-white flex items-center gap-2">
-                  <span>🛡️</span> 1. End-to-End Encryption (E2EE)
-                </h3>
-                <p>All direct messages and group media are encrypted client-side using ECDH key exchange and AES-256-GCM. Plaintext never touches central servers.</p>
-              </section>
-
-              <section className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                <h3 className="font-bold text-sm mb-1.5 text-neutral-900 dark:text-white flex items-center gap-2">
-                  <span>⚡</span> 2. Decentralized Peer-to-Peer Routing
-                </h3>
-                <p>Live audio, 4K video, and file transfers stream directly between participant browsers using WebRTC mesh networking. Low latency, zero central relay bottlenecks.</p>
-              </section>
-
-              <section className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                <h3 className="font-bold text-sm mb-1.5 text-neutral-900 dark:text-white flex items-center gap-2">
-                  <span>🧹</span> 3. Zero-Log Ephemeral Storage
-                </h3>
-                <p>Messages reside solely in volatile browser RAM. Closing the session or clearing room state permanently expunges all chat records.</p>
-              </section>
-            </div>
-            
-            <div className="mt-8 text-center">
-              <button
-                onClick={() => setShowPolicyModal(false)}
-                className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 px-8 py-2.5 rounded-full text-xs font-semibold cursor-pointer shadow-sm transition"
-              >
-                Close & Return
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Comprehensive Security & Privacy Policy Modal */}
+      <TermsPrivacyModal
+        isOpen={showPolicyModal}
+        initialTab="terms"
+        onClose={() => setShowPolicyModal(false)}
+      />
 
       {/* Modern Liquid Glass Toast Notification */}
       <AnimatePresence>

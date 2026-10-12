@@ -284,6 +284,7 @@ export default function DashboardPage() {
 
   // Notifications & initial task loading
   useEffect(() => {
+    document.title = 'Dashboard | Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption';
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
       Notification.requestPermission();
     }
@@ -349,7 +350,7 @@ export default function DashboardPage() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
-                End-to-End Encrypted Calling & Chat
+                Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption
               </p>
             </div>
           </div>

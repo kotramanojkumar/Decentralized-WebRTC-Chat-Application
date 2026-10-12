@@ -5,6 +5,31 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Get Profile (including 2FA status)
+router.get('/:userId/profile', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId as string;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        about: true,
+        avatarUrl: true,
+        twoFactorEnabled: true,
+        privacySettings: true
+      }
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ user });
+  } catch (error) {
+    console.error('Fetch Profile Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Update Profile
 router.post('/update-profile', async (req: Request, res: Response) => {
   try {
