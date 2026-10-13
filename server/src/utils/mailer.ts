@@ -10,16 +10,20 @@ const VERCEL_API_URL = getVercelUrl();
 
 const sendViaProxy = async (payload: any) => {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(VERCEL_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
+    clearTimeout(timer);
     if (!res.ok) {
       console.error('Vercel email proxy returned non-OK:', await res.text());
     }
-  } catch (error) {
-    console.error('Email Proxy Error:', error);
+  } catch (error: any) {
+    console.error('Email Proxy Error:', error.message || error);
   }
 };
 
@@ -96,4 +100,126 @@ export const sendPasswordResetEmail = async (to: string, resetLink: string) => {
 
 export const sendEmail = async (to: string, subject: string, message: string) => {
   await sendViaProxy({ to, subject, text: message, html: message.replace(/\n/g, '<br>') });
+};
+
+export const sendEmailChangeOtpCurrent = async (to: string, otp: string) => {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px; background: #0c1017; color: #f1f5f9; border: 1px solid #1e293b; border-radius: 20px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px;">
+          ✦ Account Security
+        </span>
+        <h2 style="color: #ffffff; margin-top: 12px; margin-bottom: 4px; font-size: 22px; font-weight: 800;">
+          Authorize Email Change (Step 1 of 2)
+        </h2>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+          Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption
+        </p>
+      </div>
+      <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+        A request was made to change the email address on your account. Enter this authorization code on your current email address to proceed:
+      </p>
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(56, 189, 248, 0.3); padding: 20px; text-align: center; border-radius: 16px; margin: 24px 0;">
+        <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #38bdf8; font-family: monospace; display: inline-block; margin-left: 12px;">
+          ${otp}
+        </span>
+      </div>
+      <p style="color: #94a3b8; font-size: 12px;">
+        ⏱️ Valid for 10 minutes. If you did not make this request, your account may be compromised—please change your password immediately.
+      </p>
+    </div>
+  `;
+  await sendViaProxy({
+    to,
+    subject: 'Authorize Email Change - P2PConnect Account Security',
+    text: `Your email change authorization code is: ${otp}. Valid for 10 minutes.`,
+    html
+  });
+};
+
+export const sendEmailChangeOtpNew = async (to: string, otp: string) => {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px; background: #0c1017; color: #f1f5f9; border: 1px solid #1e293b; border-radius: 20px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; padding: 6px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 1px;">
+          ✦ Verify New Address
+        </span>
+        <h2 style="color: #ffffff; margin-top: 12px; margin-bottom: 4px; font-size: 22px; font-weight: 800;">
+          Confirm New Email Address (Step 2 of 2)
+        </h2>
+      </div>
+      <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+        Enter this verification code to confirm ownership of this new email address for your P2PConnect account:
+      </p>
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(52, 211, 153, 0.3); padding: 20px; text-align: center; border-radius: 16px; margin: 24px 0;">
+        <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #34d399; font-family: monospace; display: inline-block; margin-left: 12px;">
+          ${otp}
+        </span>
+      </div>
+      <p style="color: #94a3b8; font-size: 12px;">
+        ⏱️ Valid for 10 minutes.
+      </p>
+    </div>
+  `;
+  await sendViaProxy({
+    to,
+    subject: 'Confirm Your New Email Address - P2PConnect Account Security',
+    text: `Your new email verification code is: ${otp}. Valid for 10 minutes.`,
+    html
+  });
+};
+
+export const sendEmailChangeNotification = async (oldEmail: string, newEmail: string) => {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px; background: #0c1017; color: #f1f5f9; border: 1px solid #1e293b; border-radius: 20px;">
+      <h2 style="color: #ef4444; margin-top: 0;">Security Notice: Account Email Updated</h2>
+      <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+        The email address registered to your P2PConnect account has been successfully changed to:
+      </p>
+      <p style="color: #38bdf8; font-family: monospace; font-size: 16px; font-weight: bold; padding: 12px; background: #1e293b; border-radius: 8px;">
+        ${newEmail}
+      </p>
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5;">
+        ⚠️ If you did not perform this change, your account security may be compromised. Please reset your password or contact support immediately.
+      </p>
+    </div>
+  `;
+  await sendViaProxy({
+    to: oldEmail,
+    subject: 'Security Alert: Account Email Address Changed - P2PConnect',
+    text: `Your account email was changed to ${newEmail}. If you did not do this, change your password immediately.`,
+    html
+  });
+};
+
+export const sendUsernameChangeOtp = async (to: string, newUsername: string, otp: string) => {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px; background: #0c1017; color: #f1f5f9; border: 1px solid #1e293b; border-radius: 20px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px;">
+          ✦ Account Security
+        </span>
+        <h2 style="color: #ffffff; margin-top: 12px; margin-bottom: 4px; font-size: 22px; font-weight: 800;">
+          Authorize Username Change
+        </h2>
+      </div>
+      <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+        A request was made to update your username to <strong>@${newUsername}</strong>. Enter this 6-digit authorization code to confirm:
+      </p>
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(56, 189, 248, 0.3); padding: 20px; text-align: center; border-radius: 16px; margin: 24px 0;">
+        <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #38bdf8; font-family: monospace; display: inline-block; margin-left: 12px;">
+          ${otp}
+        </span>
+      </div>
+      <p style="color: #94a3b8; font-size: 12px;">
+        ⏱️ Valid for 10 minutes. If you did not make this request, please change your password.
+      </p>
+    </div>
+  `;
+  await sendViaProxy({
+    to,
+    subject: 'Authorize Username Change - P2PConnect Account Security',
+    text: `Your authorization code to change username to @${newUsername} is: ${otp}. Valid for 10 minutes.`,
+    html
+  });
 };

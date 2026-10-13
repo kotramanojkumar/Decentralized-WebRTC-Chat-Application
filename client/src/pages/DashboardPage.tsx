@@ -101,6 +101,22 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Hydrate user profile from database to ensure avatar and credentials persist
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+    fetch(`${API_URL}/user/${userId}/profile`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.user) {
+          if (data.user.avatarUrl) localStorage.setItem('avatarUrl', data.user.avatarUrl);
+          if (data.user.displayName) localStorage.setItem('displayName', data.user.displayName);
+          if (data.user.username) localStorage.setItem('username', data.user.username);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Measured Signaling Server Health Check via /api/health probe
   useEffect(() => {
     let isMounted = true;

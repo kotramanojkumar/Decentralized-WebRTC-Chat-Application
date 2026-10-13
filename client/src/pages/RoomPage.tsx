@@ -38,6 +38,11 @@ import {
   FileText,
   Lock,
   CheckCircle2,
+  Minimize2,
+  Maximize2,
+  Camera,
+  Download,
+  GripVertical,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -51,6 +56,8 @@ interface ChatMessage {
   isFile?: boolean;
   fileUrl?: string;
   fileName?: string;
+  fileSize?: number;
+  fileType?: string;
   isVoice?: boolean;
   voiceUrl?: string;
   voiceDuration?: number;
@@ -61,6 +68,14 @@ interface AuditRecord {
   sender: string;
   hash: string;
   timestamp: number;
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 export default function RoomPage() {
@@ -274,6 +289,129 @@ export default function RoomPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(localStorage.getItem('dashboardNotes') || '');
 
+  // Movable and Resizable Quick Notes State & Handlers
+  const [notesLayout, setNotesLayout] = useState(() => {
+    try {
+      const saved = localStorage.getItem('p2p_room_notes_layout');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
+        return {
+          x: Math.min(Math.max(16, parsed.x || 16), Math.max(16, winW - 320)),
+          y: Math.min(Math.max(16, parsed.y || 80), Math.max(16, winH - 120)),
+          width: Math.min(Math.max(280, parsed.width || 360), Math.max(280, winW - 32)),
+          height: Math.min(Math.max(240, parsed.height || 380), Math.max(240, winH - 64)),
+          isMinimized: !!parsed.isMinimized
+        };
+      }
+    } catch (_) {}
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    return {
+      x: Math.max(16, winW - 400),
+      y: 80,
+      width: 360,
+      height: 380,
+      isMinimized: false
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('p2p_room_notes_layout', JSON.stringify(notesLayout));
+    } catch (_) {}
+  }, [notesLayout]);
+
+  const isDraggingNotesRef = useRef(false);
+  const dragStartPosRef = useRef({ mouseX: 0, mouseY: 0, startX: 0, startY: 0 });
+
+  const handleNotesDragStart = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('textarea')) return;
+    isDraggingNotesRef.current = true;
+    dragStartPosRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startX: notesLayout.x,
+      startY: notesLayout.y
+    };
+    e.preventDefault();
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingNotesRef.current) return;
+      const dx = moveEvent.clientX - dragStartPosRef.current.mouseX;
+      const dy = moveEvent.clientY - dragStartPosRef.current.mouseY;
+      const curW = notesLayout.isMinimized ? 220 : notesLayout.width;
+      const curH = notesLayout.isMinimized ? 52 : notesLayout.height;
+      const newX = Math.min(Math.max(8, dragStartPosRef.current.startX + dx), Math.max(8, window.innerWidth - curW - 8));
+      const newY = Math.min(Math.max(8, dragStartPosRef.current.startY + dy), Math.max(8, window.innerHeight - curH - 8));
+      setNotesLayout(prev => ({ ...prev, x: newX, y: newY }));
+    };
+
+    const handleMouseUp = () => {
+      isDraggingNotesRef.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const isResizingNotesRef = useRef(false);
+  const resizeStartPosRef = useRef({ mouseX: 0, mouseY: 0, startW: 0, startH: 0 });
+
+  const handleNotesResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isResizingNotesRef.current = true;
+    resizeStartPosRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startW: notesLayout.width,
+      startH: notesLayout.height
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizingNotesRef.current) return;
+      const dw = moveEvent.clientX - resizeStartPosRef.current.mouseX;
+      const dh = moveEvent.clientY - resizeStartPosRef.current.mouseY;
+      const newW = Math.min(Math.max(280, resizeStartPosRef.current.startW + dw), Math.max(280, window.innerWidth - notesLayout.x - 16));
+      const newH = Math.min(Math.max(220, resizeStartPosRef.current.startH + dh), Math.max(220, window.innerHeight - notesLayout.y - 16));
+      setNotesLayout(prev => ({ ...prev, width: newW, height: newH }));
+    };
+
+    const handleMouseUp = () => {
+      isResizingNotesRef.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Remote Call Recording & Screenshot Alert States
+  const [remoteRecordingStatus, setRemoteRecordingStatus] = useState<{
+    isRecording: boolean;
+    recorderName: string;
+    recorderId: string;
+    mediaType?: string;
+  } | null>(null);
+
+  const [screenshotAlert, setScreenshotAlert] = useState<{
+    senderName: string;
+    timestamp: number;
+  } | null>(null);
+
+  // Live UTC Watermark Timestamp
+  const [liveTimestamp, setLiveTimestamp] = useState(() => new Date().toISOString().replace('T', ' ').substring(0, 19));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTimestamp(new Date().toISOString().replace('T', ' ').substring(0, 19));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (notes !== localStorage.getItem('dashboardNotes')) {
       localStorage.setItem('dashboardNotes', notes);
@@ -382,6 +520,55 @@ export default function RoomPage() {
           setIsVoiceActive(false);
           setIsScreenSharing(false);
           setIsMuted(false);
+        } else if (payload.type === 'call-recording-status') {
+          if (payload.isRecording) {
+            setRemoteRecordingStatus({
+              isRecording: true,
+              recorderName: payload.recorderName || 'A participant',
+              recorderId: payload.recorderId || fromId,
+              mediaType: payload.mediaType || 'video'
+            });
+            soundEngine.playRecordStart();
+            setMessages(prev => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                sender: 'System',
+                senderName: 'Security System',
+                text: `🔴 ${payload.recorderName || 'A participant'} started recording this call (${payload.mediaType || 'video'}).`,
+                timestamp: new Date()
+              }
+            ]);
+          } else {
+            setRemoteRecordingStatus(null);
+            soundEngine.playRecordStop();
+            setMessages(prev => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                sender: 'System',
+                senderName: 'Security System',
+                text: `⏹️ ${payload.recorderName || 'The participant'} stopped call recording.`,
+                timestamp: new Date()
+              }
+            ]);
+          }
+        } else if (payload.type === 'call-screenshot-alert') {
+          setScreenshotAlert({
+            senderName: payload.senderName || 'A participant',
+            timestamp: payload.timestamp || Date.now()
+          });
+          setTimeout(() => setScreenshotAlert(null), 5000);
+          setMessages(prev => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              sender: 'System',
+              senderName: 'Security System',
+              text: `📸 Security Alert: ${payload.senderName || 'A participant'} captured a screenshot of the call.`,
+              timestamp: new Date()
+            }
+          ]);
         } else if (payload.type === 'voice-note') {
           soundEngine.playMessagePop();
           const now = new Date();
@@ -454,11 +641,14 @@ export default function RoomPage() {
         {
           id: crypto.randomUUID(),
           sender: 'Peer',
+          senderName: 'Peer',
           text: `File received: ${metadata.name}`,
           timestamp: new Date(),
           isFile: true,
           fileUrl,
-          fileName: metadata.name
+          fileName: metadata.name,
+          fileSize: metadata.size,
+          fileType: metadata.type
         }
       ]);
       appendAuditRecord('P2P File Transfer', `Received ${metadata.name} (${metadata.size}B)`);
@@ -587,6 +777,25 @@ export default function RoomPage() {
       alert('File size exceeds the 20GB limit.');
       return;
     }
+
+    const localBlobUrl = URL.createObjectURL(file);
+    const localName = localStorage.getItem('displayName') || localStorage.getItem('username') || 'Me';
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        sender: 'me',
+        senderName: localName,
+        text: `Sent file: ${file.name}`,
+        timestamp: new Date(),
+        isFile: true,
+        fileUrl: localBlobUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      }
+    ]);
 
     Object.keys(peers).forEach(peerId => {
       if (peers[peerId] === 'connected') {
@@ -865,6 +1074,27 @@ export default function RoomPage() {
       setCallRecordSeconds(0);
       soundEngine.playRecordStart();
 
+      // Broadcast recording start to peers via socket & WebRTC data channels
+      const localName = localStorage.getItem('displayName') || localStorage.getItem('username') || 'You';
+      if (socket) {
+        socket.emit('call-recording-status', {
+          roomId,
+          isRecording: true,
+          recorderName: localName,
+          recorderId: socket.id,
+          mediaType: type
+        });
+      }
+      Object.keys(peers).forEach(peerId => {
+        webrtcManagerRef.current?.sendMessage(peerId, JSON.stringify({
+          type: 'call-recording-status',
+          isRecording: true,
+          recorderName: localName,
+          recorderId: socket?.id,
+          mediaType: type
+        }));
+      });
+
       if (callTimerRef.current) clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => {
         setCallRecordSeconds(s => s + 1);
@@ -883,7 +1113,60 @@ export default function RoomPage() {
     if (callRecorderRef.current && callRecorderRef.current.state !== 'inactive') {
       callRecorderRef.current.stop();
     }
+
+    // Broadcast recording stop to peers
+    const localName = localStorage.getItem('displayName') || localStorage.getItem('username') || 'You';
+    if (socket) {
+      socket.emit('call-recording-status', {
+        roomId,
+        isRecording: false,
+        recorderName: localName,
+        recorderId: socket.id
+      });
+    }
+    Object.keys(peers).forEach(peerId => {
+      webrtcManagerRef.current?.sendMessage(peerId, JSON.stringify({
+        type: 'call-recording-status',
+        isRecording: false,
+        recorderName: localName,
+        recorderId: socket?.id
+      }));
+    });
   };
+
+  // Capture Snapshot / Screenshot notification workflow
+  const broadcastScreenshotAction = () => {
+    const localName = localStorage.getItem('displayName') || localStorage.getItem('username') || 'You';
+    if (socket) {
+      socket.emit('call-screenshot-alert', {
+        roomId,
+        senderName: localName,
+        senderId: socket.id,
+        timestamp: Date.now()
+      });
+    }
+    Object.keys(peers).forEach(peerId => {
+      webrtcManagerRef.current?.sendMessage(peerId, JSON.stringify({
+        type: 'call-screenshot-alert',
+        senderName: localName,
+        senderId: socket?.id,
+        timestamp: Date.now()
+      }));
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'PrintScreen' ||
+        ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'S' || e.key === 's' || e.key === '3' || e.key === '4'))
+      ) {
+        broadcastScreenshotAction();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [roomId, peers]);
 
   useEffect(() => {
     return () => {
@@ -1002,6 +1285,54 @@ export default function RoomPage() {
 
       socketIo.on('receive-message', (data: any) => {
         setMessages(prev => [...prev, data]);
+      });
+
+      socketIo.on('call-recording-status', (data: any) => {
+        if (data.isRecording) {
+          setRemoteRecordingStatus(data);
+          soundEngine.playRecordStart();
+          setMessages(prev => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              sender: 'System',
+              senderName: 'Security System',
+              text: `🔴 ${data.recorderName || 'A participant'} started recording this call (${data.mediaType || 'video'}).`,
+              timestamp: new Date()
+            }
+          ]);
+        } else {
+          setRemoteRecordingStatus(null);
+          soundEngine.playRecordStop();
+          setMessages(prev => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              sender: 'System',
+              senderName: 'Security System',
+              text: `⏹️ ${data.recorderName || 'The participant'} stopped call recording.`,
+              timestamp: new Date()
+            }
+          ]);
+        }
+      });
+
+      socketIo.on('call-screenshot-alert', (data: any) => {
+        setScreenshotAlert({
+          senderName: data.senderName || 'A participant',
+          timestamp: data.timestamp || Date.now()
+        });
+        setTimeout(() => setScreenshotAlert(null), 5000);
+        setMessages(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            sender: 'System',
+            senderName: 'Security System',
+            text: `📸 Security Alert: ${data.senderName || 'A participant'} captured a screenshot of the call.`,
+            timestamp: new Date()
+          }
+        ]);
       });
     });
 
@@ -1255,24 +1586,51 @@ export default function RoomPage() {
       {/* Main Workspace: Split View for WhatsApp Video Area & WhatsApp Chat */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row relative z-20">
         
-        {/* Floating Scratchpad Notes */}
+        {/* Movable & Resizable Floating Scratchpad Notes */}
         {showNotes && (
-          <div className="absolute top-4 right-4 z-50 w-80 sm:w-96 p-5 rounded-3xl shadow-2xl liquid-glass-card flex flex-col animate-fade-in border border-neutral-200/60 dark:border-white/10 backdrop-blur-xl">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-sm">
+          <div
+            style={{
+              position: 'fixed',
+              left: `${notesLayout.x}px`,
+              top: `${notesLayout.y}px`,
+              width: `${notesLayout.isMinimized ? 280 : notesLayout.width}px`,
+              height: notesLayout.isMinimized ? 'auto' : `${notesLayout.height}px`,
+              zIndex: 60,
+            }}
+            className="p-4 rounded-2xl shadow-2xl liquid-glass-card flex flex-col animate-fade-in border border-neutral-200/80 dark:border-white/20 backdrop-blur-2xl select-none"
+          >
+            {/* Draggable Header Handle */}
+            <div
+              onMouseDown={handleNotesDragStart}
+              className="flex justify-between items-center cursor-move pb-2 mb-2 border-b border-black/5 dark:border-white/10 select-none"
+            >
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+                <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500">
                   <FileText className="w-3.5 h-3.5" />
                 </div>
-                <span>Quick Notes</span>
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Auto-saved
-                </span>
+                <span className="text-xs font-bold text-neutral-900 dark:text-white">Quick Notes</span>
+              </div>
+              <div className="flex items-center gap-1.5 pointer-events-auto">
+                {!notesLayout.isMinimized && (
+                  <span className="text-[10px] font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                    Saved
+                  </span>
+                )}
                 <button
+                  type="button"
+                  onClick={() => setNotesLayout(prev => ({ ...prev, isMinimized: !prev.isMinimized }))}
+                  className="w-6 h-6 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                  title={notesLayout.isMinimized ? 'Restore Notes' : 'Minimize Notes'}
+                  aria-label={notesLayout.isMinimized ? 'Restore Notes' : 'Minimize Notes'}
+                >
+                  {notesLayout.isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowNotes(false)}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 text-xs transition cursor-pointer"
+                  className="w-6 h-6 rounded-lg flex items-center justify-center text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 text-xs transition cursor-pointer"
                   title="Close Quick Notes"
                   aria-label="Close Quick Notes"
                 >
@@ -1280,19 +1638,36 @@ export default function RoomPage() {
                 </button>
               </div>
             </div>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Private notes saved locally..."
-              className="w-full bg-neutral-50/80 dark:bg-[#1a2329]/90 border border-neutral-200/80 dark:border-white/10 rounded-2xl p-3.5 focus:outline-none focus:ring-2 focus:ring-amber-500/30 h-64 text-xs text-neutral-800 dark:text-neutral-200 resize-none placeholder-neutral-400 font-sans shadow-inner"
-            />
-            <div className="mt-3 flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-400">
-              <span className="flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-400" />
-                Saved locally (Private & Encrypted)
-              </span>
-              <span>{notes.length} chars</span>
-            </div>
+
+            {/* Note Body (Hidden when minimized) */}
+            {!notesLayout.isMinimized && (
+              <>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Private notes saved locally in your browser..."
+                  className="flex-1 w-full bg-neutral-50/80 dark:bg-[#1a2329]/90 border border-neutral-200/80 dark:border-white/10 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-xs text-neutral-800 dark:text-neutral-200 resize-none placeholder-neutral-400 font-sans shadow-inner min-h-[140px]"
+                />
+                <div className="mt-2 flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400 pt-1">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    Local Only &amp; Private
+                  </span>
+                  <span>{notes.length} chars</span>
+                </div>
+
+                {/* Resize Grip Handle */}
+                <div
+                  onMouseDown={handleNotesResizeStart}
+                  className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize flex items-center justify-center text-neutral-400 hover:text-white select-none"
+                  title="Drag to resize notes"
+                >
+                  <svg className="w-3 h-3 opacity-60 hover:opacity-100" viewBox="0 0 10 10">
+                    <path d="M9 1 L1 9 M9 5 L5 9 M9 9 L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1332,6 +1707,28 @@ export default function RoomPage() {
         {isCallActive && (
           <div className="flex-[2.5] bg-[#0c1317] p-4 sm:p-6 flex flex-col items-center justify-center relative shadow-2xl z-20 overflow-y-auto max-h-[50vh] md:max-h-none border-b md:border-b-0 md:border-r border-[#202c33]">
             
+            {/* Remote Peer Call Recording Alert Banner */}
+            {remoteRecordingStatus && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 bg-rose-950/95 border border-rose-500 backdrop-blur-xl px-5 py-2 rounded-full shadow-2xl text-white text-xs font-semibold animate-pulse">
+                <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                <span>⚠️ {remoteRecordingStatus.recorderName || 'Peer'} is recording this call ({(remoteRecordingStatus.mediaType || 'media').toUpperCase()})</span>
+              </div>
+            )}
+
+            {/* In-App / OS Screenshot Detection Banner */}
+            {screenshotAlert && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-amber-950/95 border border-amber-500/80 backdrop-blur-xl px-4 py-1.5 rounded-full shadow-2xl text-amber-200 text-xs font-semibold animate-bounce">
+                <Camera className="w-4 h-4 text-amber-400" />
+                <span>⚠️ {screenshotAlert.senderName} took a screenshot</span>
+              </div>
+            )}
+
+            {/* Dynamic Security & E2EE Watermark Over Video Stage */}
+            <div className="absolute top-3 left-4 z-30 pointer-events-none select-none text-[10px] font-mono text-cyan-300/40 dark:text-cyan-400/30 tracking-wider flex items-center gap-2">
+              <Lock className="w-3 h-3" />
+              <span>E2EE • {localStorage.getItem('username') || localStorage.getItem('displayName') || 'User'} • Room #{roomId} • {liveTimestamp}</span>
+            </div>
+
             {/* Call Recording Active Pill Banner */}
             {isRecordingCall && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 bg-rose-950/90 border border-rose-500/50 backdrop-blur-xl px-4 py-1.5 rounded-full shadow-2xl text-white text-xs font-semibold animate-pulse">
@@ -1668,6 +2065,17 @@ export default function RoomPage() {
                 <Activity className="w-5 h-5 text-cyan-300" />
               </button>
 
+              {/* Snapshot / Screenshot Action Button */}
+              <button
+                type="button"
+                onClick={broadcastScreenshotAction}
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-md bg-[#202c33] hover:bg-[#2a3942] text-amber-400 border border-amber-500/30"
+                title="Capture Snapshot & Alert Room Peers"
+                aria-label="Capture Snapshot & Alert Room Peers"
+              >
+                <Camera className="w-5 h-5 text-amber-300" />
+              </button>
+
               {/* Call Record Toggle Button */}
               <button
                 onClick={isRecordingCall ? stopCallRecording : () => startCallRecording(isVideoActive ? 'video' : 'audio')}
@@ -1771,15 +2179,47 @@ export default function RoomPage() {
                       )}
 
                       {msg.isFile && msg.fileUrl ? (
-                        <a
-                          href={msg.fileUrl}
-                          download={msg.fileName}
-                          className="font-medium text-[#00a884] dark:text-[#53bdeb] underline break-all flex items-center gap-2 p-2 rounded-xl bg-black/5 dark:bg-black/20"
-                        >
-                          <span>📎</span>
-                          <span>{msg.fileName}</span>
-                          <span className="text-[10px] uppercase font-bold ml-auto">Download</span>
-                        </a>
+                        <div className="mt-1 flex flex-col gap-1.5">
+                          {/* Rich Media Previews */}
+                          {(msg.fileType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.fileName || '')) ? (
+                            <div className="relative group overflow-hidden rounded-xl border border-black/10 dark:border-white/10 bg-black/20 max-w-sm">
+                              <img
+                                src={msg.fileUrl}
+                                alt={msg.fileName || 'Shared image'}
+                                className="w-full max-h-64 object-contain rounded-xl hover:opacity-95 transition cursor-pointer"
+                                onClick={() => window.open(msg.fileUrl, '_blank')}
+                              />
+                            </div>
+                          ) : (msg.fileType?.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(msg.fileName || '')) ? (
+                            <div className="overflow-hidden rounded-xl border border-black/10 dark:border-white/10 bg-black max-w-sm">
+                              <video
+                                controls
+                                src={msg.fileUrl}
+                                className="w-full max-h-64 object-contain rounded-xl"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-black/5 dark:bg-black/30 border border-black/5 dark:border-white/10">
+                              <span className="text-xl">📄</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-semibold text-xs truncate max-w-[200px]">{msg.fileName}</span>
+                                {msg.fileSize && (
+                                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400">{formatFileSize(msg.fileSize)}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Save to Device Action Button */}
+                          <a
+                            href={msg.fileUrl}
+                            download={msg.fileName || 'download'}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer w-fit"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Save to Device {msg.fileSize ? `(${formatFileSize(msg.fileSize)})` : ''}</span>
+                          </a>
+                        </div>
                       ) : msg.isVoice && msg.voiceUrl ? (
                         <VoiceMessagePlayer audioUrl={msg.voiceUrl} duration={msg.voiceDuration} isMe={isMe} />
                       ) : (

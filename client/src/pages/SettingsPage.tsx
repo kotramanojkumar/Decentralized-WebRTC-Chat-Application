@@ -54,6 +54,24 @@ export default function SettingsPage() {
     twoFactorEnabled: localStorage.getItem('twoFactorEnabled') === 'true'
   });
 
+  // --- Secure Email Change State (2-Step OTP) ---
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailModalStep, setEmailModalStep] = useState<1 | 2 | 3>(1);
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [emailOtpCurrent, setEmailOtpCurrent] = useState('');
+  const [emailOtpNew, setEmailOtpNew] = useState('');
+  const [emailModalError, setEmailModalError] = useState('');
+  const [emailModalLoading, setEmailModalLoading] = useState(false);
+
+  // --- Secure Username Change State (OTP Authorization) ---
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [usernameModalStep, setUsernameModalStep] = useState<1 | 2>(1);
+  const [newUsernameInput, setNewUsernameInput] = useState('');
+  const [usernameOtp, setUsernameOtp] = useState('');
+  const [usernameModalError, setUsernameModalError] = useState('');
+  const [usernameModalLoading, setUsernameModalLoading] = useState(false);
+  const [usernameMaskedEmail, setUsernameMaskedEmail] = useState('');
+
   useEffect(() => {
     // Load local info
     setProfile({
@@ -301,6 +319,128 @@ export default function SettingsPage() {
     } catch (err) {}
   };
 
+  const handleRequestEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailModalLoading(true);
+    setEmailModalError('');
+    const userId = localStorage.getItem('userId');
+    try {
+      const res = await fetch(`${API_URL}/user/request-email-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newEmail: newEmailInput.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to request email change');
+      setEmailModalStep(2);
+      showToast(data.message || 'Code sent to current email');
+    } catch (err: any) {
+      setEmailModalError(err.message);
+    } finally {
+      setEmailModalLoading(false);
+    }
+  };
+
+  const handleVerifyCurrentEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailModalLoading(true);
+    setEmailModalError('');
+    const userId = localStorage.getItem('userId');
+    try {
+      const res = await fetch(`${API_URL}/user/verify-email-change-current`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, otp: emailOtpCurrent.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to verify current email code');
+      setEmailModalStep(3);
+      showToast(data.message || 'Code sent to new email');
+    } catch (err: any) {
+      setEmailModalError(err.message);
+    } finally {
+      setEmailModalLoading(false);
+    }
+  };
+
+  const handleConfirmNewEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailModalLoading(true);
+    setEmailModalError('');
+    const userId = localStorage.getItem('userId');
+    try {
+      const res = await fetch(`${API_URL}/user/confirm-email-change-new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, otp: emailOtpNew.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to confirm new email');
+      setProfile(p => ({ ...p, email: data.newEmail }));
+      localStorage.setItem('email', data.newEmail);
+      showToast('Email address successfully updated! ✨');
+      setShowEmailModal(false);
+      setEmailModalStep(1);
+      setNewEmailInput('');
+      setEmailOtpCurrent('');
+      setEmailOtpNew('');
+    } catch (err: any) {
+      setEmailModalError(err.message);
+    } finally {
+      setEmailModalLoading(false);
+    }
+  };
+
+  const handleRequestUsernameChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsernameModalLoading(true);
+    setUsernameModalError('');
+    const userId = localStorage.getItem('userId');
+    try {
+      const res = await fetch(`${API_URL}/user/request-username-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newUsername: newUsernameInput.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to request username change');
+      setUsernameMaskedEmail(data.maskedEmail || 'your registered email');
+      setUsernameModalStep(2);
+      showToast(data.message || 'Authorization code sent to your email');
+    } catch (err: any) {
+      setUsernameModalError(err.message);
+    } finally {
+      setUsernameModalLoading(false);
+    }
+  };
+
+  const handleConfirmUsernameChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsernameModalLoading(true);
+    setUsernameModalError('');
+    const userId = localStorage.getItem('userId');
+    try {
+      const res = await fetch(`${API_URL}/user/confirm-username-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, otp: usernameOtp.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to confirm username change');
+      setProfile(p => ({ ...p, username: data.newUsername }));
+      localStorage.setItem('username', data.newUsername);
+      showToast(`Username updated to @${data.newUsername} successfully! ✨`);
+      setShowUsernameModal(false);
+      setUsernameModalStep(1);
+      setNewUsernameInput('');
+      setUsernameOtp('');
+    } catch (err: any) {
+      setUsernameModalError(err.message);
+    } finally {
+      setUsernameModalLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
@@ -511,21 +651,64 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Unique Username
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                      Unique Username
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewUsernameInput(profile.username || '');
+                        setUsernameModalStep(1);
+                        setUsernameModalError('');
+                        setShowUsernameModal(true);
+                      }}
+                      className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>🔐 Change Username (OTP)</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={profile.username}
-                    onChange={e => setProfile({...profile, username: e.target.value})}
-                    disabled={!isEditingProfile}
+                    readOnly
                     placeholder="@username"
-                    className={`w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all ${
-                      !isEditingProfile
-                        ? 'opacity-80 cursor-not-allowed bg-black/5 dark:bg-white/5 border border-transparent'
-                        : 'bg-white dark:bg-neutral-900 border border-emerald-500/50 ring-2 ring-emerald-500/20'
-                    }`}
+                    className="w-full rounded-2xl px-4 py-3 text-sm outline-none bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 opacity-80 cursor-default font-mono text-neutral-700 dark:text-neutral-300"
                   />
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1">
+                    Usernames are unique across the decentralized network and protected by email authorization.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                      Registered Email Address
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewEmailInput('');
+                        setEmailOtpCurrent('');
+                        setEmailOtpNew('');
+                        setEmailModalStep(1);
+                        setEmailModalError('');
+                        setShowEmailModal(true);
+                      }}
+                      className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>✉️ Change Email (2-Step OTP)</span>
+                    </button>
+                  </div>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    readOnly
+                    className="w-full rounded-2xl px-4 py-3 text-sm outline-none bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 opacity-80 cursor-default font-mono text-neutral-700 dark:text-neutral-300"
+                  />
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1">
+                    Email updates require dual-factor verification on both current and new addresses.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
@@ -840,6 +1023,278 @@ export default function SettingsPage() {
         initialTab="terms"
         onClose={() => setShowPolicyModal(false)}
       />
+
+      {/* Change Email Address Modal (2-Step Verification) */}
+      <AnimatePresence>
+        {showEmailModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-[32px] liquid-glass-card shadow-2xl border border-white/20 relative"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    ✉️
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white">Change Email Address</h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Step {emailModalStep} of 2 Dual-Verification</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmailModal(false)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 text-xs transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {emailModalError && (
+                <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs text-center font-medium">
+                  {emailModalError}
+                </div>
+              )}
+
+              {emailModalStep === 1 && (
+                <form onSubmit={handleRequestEmailChange} className="space-y-4">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                    Enter your new email address. We will first send an authorization code to your <strong>currently registered email</strong> (<span className="font-mono text-cyan-500">{profile.email}</span>) to verify account ownership.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-neutral-700 dark:text-neutral-300">
+                      New Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={newEmailInput}
+                      onChange={e => setNewEmailInput(e.target.value)}
+                      placeholder="newemail@domain.com"
+                      className="w-full rounded-2xl px-4 py-3 text-sm outline-none bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-cyan-500 font-mono"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailModal(false)}
+                      className="px-4 py-2 rounded-full text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={emailModalLoading}
+                      className="px-6 py-2.5 rounded-full text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {emailModalLoading ? 'Sending Code...' : 'Send Authorization Code'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {emailModalStep === 2 && (
+                <form onSubmit={handleVerifyCurrentEmailOtp} className="space-y-4">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                    Enter the 6-digit authorization code sent to your <strong>current email</strong> (<span className="font-mono text-cyan-500">{profile.email}</span>):
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-neutral-700 dark:text-neutral-300">
+                      Current Email Code (Step 1)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={emailOtpCurrent}
+                      onChange={e => setEmailOtpCurrent(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••••"
+                      className="w-full rounded-2xl px-4 py-3 text-center tracking-[0.5em] text-lg font-mono font-bold outline-none bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-cyan-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEmailModalStep(1)}
+                      className="px-4 py-2 rounded-full text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={emailModalLoading || emailOtpCurrent.length !== 6}
+                      className="px-6 py-2.5 rounded-full text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {emailModalLoading ? 'Verifying...' : 'Verify Current Email'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {emailModalStep === 3 && (
+                <form onSubmit={handleConfirmNewEmailOtp} className="space-y-4">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                    Now enter the confirmation code sent to your <strong>new email</strong> (<span className="font-mono text-emerald-500">{newEmailInput}</span>):
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-neutral-700 dark:text-neutral-300">
+                      New Email Confirmation Code (Step 2)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={emailOtpNew}
+                      onChange={e => setEmailOtpNew(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••••"
+                      className="w-full rounded-2xl px-4 py-3 text-center tracking-[0.5em] text-lg font-mono font-bold outline-none bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-emerald-500 text-emerald-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEmailModalStep(2)}
+                      className="px-4 py-2 rounded-full text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={emailModalLoading || emailOtpNew.length !== 6}
+                      className="px-6 py-2.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {emailModalLoading ? 'Updating Email...' : 'Confirm & Update Email'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Change Username Modal (OTP Authorized) */}
+      <AnimatePresence>
+        {showUsernameModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-[32px] liquid-glass-card shadow-2xl border border-white/20 relative"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    🔐
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white">Change Username</h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Two-Factor Protected Handle</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUsernameModal(false)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 text-xs transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {usernameModalError && (
+                <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs text-center font-medium">
+                  {usernameModalError}
+                </div>
+              )}
+
+              {usernameModalStep === 1 && (
+                <form onSubmit={handleRequestUsernameChange} className="space-y-4">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                    Choose a new unique handle (3–30 characters, letters, numbers, and underscores). An authorization code will be sent to your registered email to authorize the update.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-neutral-700 dark:text-neutral-300">
+                      New Desired Username
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-3.5 text-neutral-400 font-mono text-sm">@</span>
+                      <input
+                        type="text"
+                        required
+                        value={newUsernameInput}
+                        onChange={e => setNewUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                        placeholder="new_username"
+                        className="w-full rounded-2xl pl-9 pr-4 py-3 text-sm outline-none bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowUsernameModal(false)}
+                      className="px-4 py-2 rounded-full text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={usernameModalLoading || newUsernameInput.length < 3}
+                      className="px-6 py-2.5 rounded-full text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {usernameModalLoading ? 'Checking & Sending...' : 'Request Authorization Code'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {usernameModalStep === 2 && (
+                <form onSubmit={handleConfirmUsernameChange} className="space-y-4">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                    Enter the 6-digit code sent to <span className="font-mono text-cyan-500">{usernameMaskedEmail}</span> to claim <strong>@{newUsernameInput}</strong>:
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-neutral-700 dark:text-neutral-300">
+                      Authorization Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={usernameOtp}
+                      onChange={e => setUsernameOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••••"
+                      className="w-full rounded-2xl px-4 py-3 text-center tracking-[0.5em] text-lg font-mono font-bold outline-none bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-cyan-500 text-cyan-400"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setUsernameModalStep(1)}
+                      className="px-4 py-2 rounded-full text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={usernameModalLoading || usernameOtp.length !== 6}
+                      className="px-6 py-2.5 rounded-full text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {usernameModalLoading ? 'Claiming Username...' : 'Confirm & Update Username'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modern Liquid Glass Toast Notification */}
       <AnimatePresence>

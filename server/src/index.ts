@@ -26,7 +26,8 @@ const prisma = new PrismaClient();
 
 app.set('io', io);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 import adminRoutes from './routes/admin';
 
@@ -89,6 +90,14 @@ io.on('connection', (socket) => {
 
   socket.on('ice-candidate', (data: { candidate: any, to: string }) => {
     socket.to(data.to).emit('ice-candidate', { candidate: data.candidate, from: socket.id });
+  });
+
+  socket.on('call-recording-status', (data: { roomId: string, isRecording: boolean, recorderName: string, recorderId: string, mediaType?: string }) => {
+    socket.to(data.roomId).emit('call-recording-status', data);
+  });
+
+  socket.on('call-screenshot-alert', (data: { roomId: string, senderName: string, senderId: string, timestamp?: number }) => {
+    socket.to(data.roomId).emit('call-screenshot-alert', data);
   });
 
   socket.on('disconnect', () => {
