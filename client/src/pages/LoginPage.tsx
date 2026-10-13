@@ -113,12 +113,12 @@ export default function LoginPage() {
         <Link to="/" className="inline-flex items-center gap-2.5 group">
           <img
             src="/assets/p2p_connect_icon.png"
-            alt="P2PConnect"
+            alt="Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption"
             className="w-10 h-10 object-contain rounded-2xl drop-shadow-md group-hover:scale-105 transition-transform"
           />
           <div>
-            <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white block">P2PConnect</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 dark:text-cyan-400 block -mt-1">Real-Time Mesh</span>
+            <span className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white block">Decentralized Real-Time Chat</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 dark:text-cyan-400 block -mt-0.5">WebRTC with End-to-End Encryption</span>
           </div>
         </Link>
         <ThemeToggle />
@@ -188,10 +188,10 @@ export default function LoginPage() {
               </motion.div>
             ) : (
               <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
-                  <span>Sign In to</span>
-                  <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-blue-400 dark:via-indigo-300 dark:to-cyan-300 bg-clip-text text-transparent">
-                    P2PConnect
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex flex-col gap-0.5">
+                  <span>Sign In</span>
+                  <span className="text-sm sm:text-base font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-blue-400 dark:via-indigo-300 dark:to-cyan-300 bg-clip-text text-transparent">
+                    Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption
                   </span>
                 </h1>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 font-medium">
@@ -364,7 +364,7 @@ export default function LoginPage() {
       {/* Footer Return Link */}
       <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400 relative z-20">
         <Link to="/" className="hover:text-slate-800 dark:hover:text-neutral-200 transition underline">
-          ← Return to P2PConnect Home
+          ← Return to Home
         </Link>
       </div>
 

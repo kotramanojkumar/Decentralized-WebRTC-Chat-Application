@@ -99,6 +99,10 @@ export default function SettingsPage() {
             if (data.user.email) setProfile(p => ({ ...p, email: data.user.email }));
             if (data.user.username) setProfile(p => ({ ...p, username: data.user.username }));
             if (data.user.about) setProfile(p => ({ ...p, about: data.user.about }));
+            if (data.user.avatarUrl) {
+              setProfile(p => ({ ...p, avatarUrl: data.user.avatarUrl }));
+              localStorage.setItem('avatarUrl', data.user.avatarUrl);
+            }
           }
         }).catch(e => console.error('Failed to load user profile:', e));
 
@@ -344,9 +348,9 @@ export default function SettingsPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight">Settings</h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 shadow-sm">
-                <img src="/assets/p2p_connect_icon.png" alt="P2P" className="w-3.5 h-3.5 object-contain" />
-                <span>P2PConnect</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5 shadow-sm">
+                <img src="/assets/p2p_connect_icon.png" alt="Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption" className="w-3.5 h-3.5 object-contain" />
+                <span>Decentralized WebRTC</span>
               </span>
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Account security & system preferences</p>
@@ -653,17 +657,17 @@ export default function SettingsPage() {
               <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs leading-relaxed">
                 <h3 className="font-bold mb-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
                   <span>🔒</span>
-                  <span>P2PConnect Cryptographic Guarantee</span>
+                  <span>Cryptographic Guarantee</span>
                 </h3>
                 <p className="mb-3 opacity-90">
-                  All peer-to-peer audio, video, and text streams in P2PConnect are secured with military-grade End-to-End Encryption (AES-GCM / WebRTC DTLS-SRTP). No intermediary server can intercept or decrypt your live streams.
+                  All peer-to-peer audio, video, and text streams in this application are secured with military-grade End-to-End Encryption (AES-GCM / WebRTC DTLS-SRTP). No intermediary server can intercept or decrypt your live streams.
                 </p>
                 <button
                   type="button"
                   onClick={() => setShowPolicyModal(true)}
                   className="font-semibold underline hover:text-emerald-950 dark:hover:text-emerald-200 cursor-pointer"
                 >
-                  Read full P2PConnect Security & Architecture Policy →
+                  Read full Security &amp; Architecture Policy →
                 </button>
               </div>
             </div>
@@ -791,7 +795,7 @@ export default function SettingsPage() {
           {activeTab === 'help' && (
             <div className="liquid-glass-card p-6 sm:p-8 rounded-[32px] shadow-2xl transition-all">
               <h2 className="text-xl font-bold tracking-tight mb-2">Help & Feedback</h2>
-              <p className="mb-6 text-xs text-neutral-500 dark:text-neutral-400">Have a suggestion or found an issue? Help us refine P2PConnect.</p>
+              <p className="mb-6 text-xs text-neutral-500 dark:text-neutral-400">Have a suggestion or found an issue? Help us refine the platform.</p>
               <form onSubmit={handleFeedbackSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1.5">Category</label>

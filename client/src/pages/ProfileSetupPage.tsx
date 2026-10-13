@@ -91,8 +91,8 @@ export default function ProfileSetupPage() {
       {/* Top Bar */}
       <header className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2.5">
-          <img src="/assets/p2p_connect_icon.png" alt="P2PConnect" className="w-9 h-9 object-contain" />
-          <span className="font-extrabold text-base tracking-tight">P2PConnect Identity</span>
+          <img src="/assets/p2p_connect_icon.png" alt="Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption" className="w-9 h-9 object-contain" />
+          <span className="font-extrabold text-sm sm:text-base tracking-tight">Decentralized Identity Setup</span>
         </div>
         <ThemeToggle />
       </header>

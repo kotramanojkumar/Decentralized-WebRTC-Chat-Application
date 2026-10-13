@@ -189,8 +189,8 @@ export default function ContactsPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Contacts</h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  P2PConnect
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                  Decentralized WebRTC
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">Discover users &amp; start secure P2P conversations</p>

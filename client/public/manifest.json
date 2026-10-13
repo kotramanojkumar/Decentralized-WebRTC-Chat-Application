@@ -1,12 +1,22 @@
 {
-  "short_name": "P2PConnect",
-  "name": "P2PConnect — Decentralized Real-Time Chat",
-  "description": "Secure, peer-to-peer WebRTC chat with end-to-end encryption",
+  "short_name": "Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption",
+  "name": "Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption",
+  "description": "Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption",
   "icons": [
     {
-      "src": "/vite.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192 512x512"
+      "src": "/pwa-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/pwa-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/assets/project_logo.png",
+      "type": "image/png",
+      "sizes": "1024x1024"
     }
   ],
   "start_url": "/",

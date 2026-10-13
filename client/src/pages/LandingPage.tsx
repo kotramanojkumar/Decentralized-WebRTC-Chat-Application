@@ -28,7 +28,7 @@ export default function LandingPage() {
   const [legalModalTab, setLegalModalTab] = useState<'terms' | 'privacy'>('terms');
 
   useEffect(() => {
-    document.title = 'P2PConnect | Decentralized Real-Time WebRTC Architecture';
+    document.title = 'Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption';
   }, []);
 
   const openLegalModal = (tab: 'terms' | 'privacy') => {
@@ -65,21 +65,21 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           
           {/* Logo & Project Identity */}
-          <Link to="/" className="flex items-center gap-3 group cursor-pointer">
-            <div className="relative">
+          <Link to="/" className="flex items-center gap-3 group cursor-pointer max-w-xl">
+            <div className="relative shrink-0">
               <img
                 src="/assets/p2p_connect_icon.png"
-                alt="P2PConnect"
+                alt="Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption"
                 className="w-10 h-10 object-contain rounded-2xl drop-shadow-[0_0_15px_rgba(34,211,238,0.25)] group-hover:scale-105 transition-transform duration-200"
               />
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#060911] shadow-[0_0_8px_#10b981]" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-tight text-white block group-hover:text-cyan-300 transition-colors">
-                P2PConnect
+              <span className="font-bold text-sm sm:text-base tracking-tight text-white block group-hover:text-cyan-300 transition-colors leading-tight">
+                Decentralized Real-Time Chat Application
               </span>
-              <span className="hidden sm:inline-block text-[10px] tracking-widest uppercase text-neutral-400 font-mono">
-                Decentralized P2P Mesh
+              <span className="hidden sm:inline-block text-[10px] tracking-wider uppercase text-neutral-400 font-mono">
+                WebRTC with End-to-End Encryption
               </span>
             </div>
           </Link>
@@ -483,13 +483,11 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
             <img
               src="/assets/p2p_connect_icon.png"
-              alt="P2PConnect"
+              alt="Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption"
               className="w-8 h-8 object-contain rounded-xl"
             />
             <div>
-              <span className="text-white font-semibold block sm:inline">P2PConnect</span>
-              <span className="hidden sm:inline"> • </span>
-              <span className="text-neutral-400">
+              <span className="text-white font-semibold">
                 Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption
               </span>
             </div>

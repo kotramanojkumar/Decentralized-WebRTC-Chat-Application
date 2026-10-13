@@ -109,7 +109,7 @@ export default function TermsPrivacyModal({
                 <div>
                   <h3 className="font-bold text-neutral-900 dark:text-white mb-1">1. Acceptance of Terms</h3>
                   <p>
-                    By accessing or registering an account on <strong>Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption</strong> (hereinafter referred to as "the Platform" or "P2PConnect"), you agree to abide by these Terms of Service. If you do not agree, do not use the application.
+                    By accessing or registering an account on <strong>Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption</strong> (hereinafter referred to as "the Platform"), you agree to abide by these Terms of Service. If you do not agree, do not use the application.
                   </p>
                 </div>
 

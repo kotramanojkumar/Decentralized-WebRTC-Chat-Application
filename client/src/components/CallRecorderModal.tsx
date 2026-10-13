@@ -29,8 +29,8 @@ export default function CallRecorderModal({
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
     const defaultName = recordingType === 'video'
-      ? `P2PConnect_Meeting_${dateStr}_${timeStr}.webm`
-      : `P2PConnect_AudioCall_${dateStr}_${timeStr}.webm`;
+      ? `Decentralized_Meeting_${dateStr}_${timeStr}.webm`
+      : `Decentralized_AudioCall_${dateStr}_${timeStr}.webm`;
     setFileName(defaultName);
 
     return () => {

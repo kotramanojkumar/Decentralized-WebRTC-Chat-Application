@@ -36,7 +36,6 @@ import {
 import { API_URL } from '../config';
 import ThemeToggle from '../components/ThemeToggle';
 import NamaskarGreeting from '../components/NamaskarGreeting';
-import QuantumEntropyShield from '../components/QuantumEntropyShield';
 import NetworkTopology3D from '../components/NetworkTopology3D';
 import ErrorBoundary from '../components/ErrorBoundary';
 
@@ -468,12 +467,12 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-neutral-100 dark:bg-[#070a12] text-neutral-900 dark:text-neutral-100 transition-colors duration-300 relative overflow-x-hidden">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-transparent dark:bg-[#070a12]/80 text-neutral-900 dark:text-neutral-100 transition-colors duration-300 relative overflow-x-hidden">
       
       {/* Background Ambient Glows */}
       <div className="fixed top-0 left-1/4 w-[600px] h-[350px] bg-blue-500/10 dark:bg-blue-600/10 blur-[140px] pointer-events-none -z-0" />
       <div className="fixed bottom-10 right-10 w-[500px] h-[350px] bg-emerald-500/10 dark:bg-emerald-600/10 blur-[140px] pointer-events-none -z-0" />
-      
+
       <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Top Header Command Bar (Liquid Glass Pill) */}
@@ -485,20 +484,15 @@ export default function DashboardPage() {
         >
           {/* Brand & Connection State */}
           <div className="flex items-center gap-3">
-            <img
-              src="/assets/p2p_connect_icon.png"
-              alt="P2PConnect"
-              className="w-11 h-11 object-contain rounded-2xl drop-shadow-md hover:scale-105 transition-transform"
-            />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base tracking-tight text-neutral-900 dark:text-white">
-                  P2PConnect
+                <span className="font-bold text-sm sm:text-base tracking-tight text-neutral-900 dark:text-white">
+                  Decentralized Real-Time Chat Application
                 </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
-                Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption
+                Using WebRTC with End-to-End Encryption
               </p>
             </div>
           </div>
@@ -508,7 +502,7 @@ export default function DashboardPage() {
             <button
               onClick={() => {
                 const url = window.location.origin;
-                navigator.clipboard.writeText(`Join me on P2PConnect: ${url}`);
+                navigator.clipboard.writeText(`Join me on Decentralized Real-Time Chat Application Using WebRTC with End-to-End Encryption: ${url}`);
                 showToast("Invite link copied to clipboard!");
               }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:scale-105 shadow-md transition active:scale-95 cursor-pointer"
@@ -561,9 +555,6 @@ export default function DashboardPage() {
               </span>
               <Settings className="w-3 h-3 text-neutral-400" />
             </button>
-
-            {/* Quantum Entropy & E2EE Shield (Novelty Feature) */}
-            <QuantumEntropyShield />
 
             {/* Light / Dark Mode Toggle Button */}
             <ThemeToggle />
